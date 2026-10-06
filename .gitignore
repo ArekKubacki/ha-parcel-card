@@ -1,0 +1,13 @@
+# Local / generated artifacts
+*.zip
+*.gz
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node tooling, if used locally
+node_modules/
+npm-debug.log*
