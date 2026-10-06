@@ -1,5 +1,11 @@
 # 📦 HA Parcel Card
 
+[![HACS Custom][hacs_shield]][hacs]
+[![GitHub Latest Release][releases_shield]][latest_release]
+[![GitHub All Releases][downloads_total_shield]][releases]
+[![Buy me a coffee][buy_me_a_coffee_shield]][buy_me_a_coffee]
+[![PayPal.Me][paypal_me_shield]][paypal_me]
+
 Rozbudowana karta Lovelace dla **Home Assistant**, która łączy informacje o przesyłkach z kilku integracji w jednym, zwięzłym widoku.
 
 Obsługiwane źródła:
@@ -770,3 +776,20 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 ```text
 1.8.3
 ```
+
+---
+
+[hacs_shield]: https://img.shields.io/static/v1.svg?label=HACS&message=Custom&style=popout&color=orange&labelColor=41bdf5&logo=HomeAssistantCommunityStore&logoColor=white
+[hacs]: https://hacs.xyz/docs/faq/custom_repositories
+
+[latest_release]: https://github.com/ArekKubacki/ha-parcel-card/releases/latest
+[releases_shield]: https://img.shields.io/github/release/ArekKubacki/ha-parcel-card.svg?style=popout
+
+[releases]: https://github.com/ArekKubacki/ha-parcel-card/releases
+[downloads_total_shield]: https://img.shields.io/github/downloads/ArekKubacki/ha-parcel-card/total
+
+[buy_me_a_coffee_shield]: https://img.shields.io/static/v1.svg?label=%20&message=Buy%20me%20a%20coffee&color=6f4e37&logo=buy%20me%20a%20coffee&logoColor=white
+[buy_me_a_coffee]: https://www.buymeacoffee.com/ArekKubacki
+
+[paypal_me_shield]: https://img.shields.io/static/v1.svg?label=%20&message=PayPal.Me&logo=paypal
+[paypal_me]: https://paypal.me/ArekKubacki
