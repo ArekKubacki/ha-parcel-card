@@ -60,22 +60,13 @@
     "Inny"
   ];
 
-  const DEFAULT_PEOPLE = [
-    {
-      name: "Kasia",
-      source_entity: "sensor.inpost_inpost_kasia_do_odbioru"
-    },
-    {
-      name: "Arek",
-      source_entity: "sensor.inpost_inpost_arek_do_odbioru"
-    }
-  ];
+  const DEFAULT_PEOPLE = [];
 
   const DEFAULTS = {
     inpost_people: DEFAULT_PEOPLE,
     dpd_people: [],
     dhl_people: [],
-    allegro_progress_entity: "sensor.allegro_arek_pl_in_progress",
+    allegro_progress_entity: "",
 
     columns: 3,
     show_empty_message: true,
@@ -102,49 +93,19 @@
   }
 
   function normalizePeople(config) {
-    if (Array.isArray(config?.inpost_people)) {
-      return config.inpost_people.map((p, index) => ({
-        name: String(p?.name || `Osoba ${index + 1}`),
-        source_entity: String(
-          p?.source_entity ||
-          p?.ready_entity ||
-          p?.transit_entity ||
-          ""
-        )
-      }));
+    if (!Array.isArray(config?.inpost_people)) {
+      return deepClone(DEFAULT_PEOPLE);
     }
 
-    // Migracja ze starszego formatu z osobnymi encjami
-    // "do odbioru" i "w drodze". Preferujemy encję "do odbioru",
-    // bo właśnie ona w tej integracji zawiera w atrybutach obie listy.
-    const legacyPresent =
-      config?.kasia_ready_entity ||
-      config?.kasia_transit_entity ||
-      config?.arek_ready_entity ||
-      config?.arek_transit_entity;
-
-    if (legacyPresent) {
-      return [
-        {
-          name: "Kasia",
-          source_entity: String(
-            config.kasia_ready_entity ||
-            config.kasia_transit_entity ||
-            DEFAULT_PEOPLE[0].source_entity
-          )
-        },
-        {
-          name: "Arek",
-          source_entity: String(
-            config.arek_ready_entity ||
-            config.arek_transit_entity ||
-            DEFAULT_PEOPLE[1].source_entity
-          )
-        }
-      ];
-    }
-
-    return deepClone(DEFAULT_PEOPLE);
+    return config.inpost_people.map((p, index) => ({
+      name: String(p?.name || `Osoba ${index + 1}`),
+      source_entity: String(
+        p?.source_entity ||
+        p?.ready_entity ||
+        p?.transit_entity ||
+        ""
+      )
+    }));
   }
 
   function normalizeSourcePeople(items) {
@@ -190,7 +151,7 @@
   }
 
   // Lokalny generator QR dla kodów odbioru.
-  // Obsługuje pełny payload Allegro, np. "D:601266929:533897",
+  // Obsługuje pełny payload Allegro, np. "D:XXXXXXXXX:XXXXXX",
   // a nie tylko same cyfry. Dla krótkich danych używa QR Version 1-L,
   // dla dłuższych Version 2-L. Bez zewnętrznych usług i bibliotek.
   function makePickupQrMatrix(value) {
@@ -3417,7 +3378,7 @@
               type="text"
               data-person-name="${index}"
               value="${this._e(person.name)}"
-              placeholder="np. Kasia"
+              placeholder="np. Osoba 1"
             >
           </div>
 
@@ -3461,7 +3422,7 @@
               type="text"
               data-${lower}-person-name="${index}"
               value="${this._e(person.name)}"
-              placeholder="np. Arek"
+              placeholder="np. Osoba 2"
             >
           </div>
 
