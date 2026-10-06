@@ -20,7 +20,7 @@ Karta potrafi rozpoznać, że ta sama fizyczna przesyłka występuje jednocześn
 
 - wspólna karta przesyłek z kilku integracji,
 - obsługa wielu osób / kont,
-- osobne przypisanie paczek do osób, np. `InPost: Arek`,
+- osobne przypisanie paczek do osób, np. `InPost: xxx`,
 - automatyczne łączenie duplikatów z różnych źródeł,
 - wspólna siatka przewoźników na dole karty,
 - szczegółowy popup po kliknięciu przewoźnika,
@@ -141,7 +141,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.8.2
+/local/community/parcel-card/parcel-card.js?v=1.8.3
 ```
 
 ---
@@ -152,20 +152,20 @@ Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 type: custom:parcel-card
 
 inpost_people:
-  - name: Arek
-    source_entity: sensor.inpost_inpost_arek_do_odbioru
-  - name: Kasia
-    source_entity: sensor.inpost_inpost_kasia_do_odbioru
+  - name: xxx
+    source_entity: sensor.inpost_inpost_xxx_do_odbioru
+  - name: yyy
+    source_entity: sensor.inpost_inpost_yyy_do_odbioru
 
 dpd_people:
-  - name: Arek
-    source_entity: sensor.dpd_601266929_w_drodze
+  - name: xxx
+    source_entity: sensor.dpd_xxx_w_drodze
 
 dhl_people:
-  - name: Arek
-    source_entity: sensor.dhl_arek_w_drodze
+  - name: xxx
+    source_entity: sensor.dhl_xxx_w_drodze
 
-allegro_progress_entity: sensor.allegro_arek_pl_in_progress
+allegro_progress_entity: sensor.allegro_xxx_in_progress
 
 mail_entities:
   - sensor.listy_w_skrzynce
@@ -209,7 +209,7 @@ Nazwy encji są tylko przykładowe. Użyj encji ze swojej instancji Home Assista
 Dla InPost, DPD i DHL format jest taki sam:
 
 ```yaml
-- name: Arek
+- name: xxx
   source_entity: sensor.example
 ```
 
@@ -248,7 +248,7 @@ To może być nieintuicyjne, ponieważ właśnie ta encja zawiera pełne szczeg�
 Przykładowa encja:
 
 ```text
-sensor.inpost_inpost_arek_do_odbioru
+sensor.inpost_inpost_xxx_do_odbioru
 ```
 
 Przykładowe atrybuty:
@@ -258,19 +258,19 @@ do_odbioru_count: 1
 w_drodze_count: 2
 
 do_odbioru:
-  - numer: "620999672860185436743137"
+  - numer: "XXXXXXXXXXXXXXXXXXXXXXXX"
     nadawca: "Przykładowy nadawca"
-    kod_odbioru: "132035"
-    paczkomat: "SKW06M"
+    kod_odbioru: "111111"
+    paczkomat: "XXX00X"
     adres: "Przykładowy adres Paczkomatu"
     termin_odbioru: "2026-10-02T08:43:00.000Z"
-    qr: "P|+48600000000|132035"
+    qr: "P|+48XXXXXXXXX|111111"
     multiskrytka: null
 
 w_drodze:
-  - numer: "620999672860185436743137"
+  - numer: "XXXXXXXXXXXXXXXXXXXXXXXX"
     nadawca: "Przykładowy nadawca"
-    paczkomat: "SKW06M"
+    paczkomat: "XXX00X"
     status: "Potwierdzona"
 ```
 
@@ -303,17 +303,17 @@ Integracja może zwrócić jedną pozycję grupową, mimo że fizycznie w skrytc
 do_odbioru_count: 3
 
 do_odbioru:
-  - numer: "620999672860185430199756"
-    kod_odbioru: "260931"
+  - numer: "YYYYYYYYYYYYYYYYYYYYYYYY"
+    kod_odbioru: "222222"
     multiskrytka: 3
     paczki:
-      - "620999672860185436743137"
-      - "620999672860185430199756"
-      - "657220927660185026730401"
+      - "XXXXXXXXXXXXXXXXXXXXXXXX"
+      - "YYYYYYYYYYYYYYYYYYYYYYYY"
+      - "ZZZZZZZZZZZZZZZZZZZZZZZZ"
     kody_fallback:
-      - "132035"
-      - "260931"
-      - "653428"
+      - "111111"
+      - "222222"
+      - "333333"
 ```
 
 Karta rozbija taką grupę na osobne fizyczne paczki i oznacza je np.:
@@ -357,10 +357,10 @@ w_drodze:
     nadawca: Sprzedawca
     status: Utworzona
     aktualizacja: "2026-10-02T08:36:37Z"
-    adres_nadawcy: "Piłsudskiego 190, 05-270 Marki"
+    adres_nadawcy: "ul. Xxxxx 00, 00-000 Xxxxx"
     gps_doreczenia:
-      lat: "52.39696"
-      lon: "16.79105"
+      lat: "00.00000"
+      lon: "00.00000"
     kurier: null
     telefon_kuriera: null
 ```
@@ -432,11 +432,11 @@ details:
     Offers:
       - Przykładowy produkt
     tracing_url: >-
-      https://inpost.pl/pl/pomoc/znajdz-przesylke?parcel=620999672860185436743137
+      https://inpost.pl/sledzenie-przesylek?number=XXXXXXXXXXXXXXXXXXXXXXXX
     delivery_name: Allegro Paczkomaty InPost
     pickup_code: 132 035
-    receiver_phone_number: +48 600 000 000
-    qr_code: P|+48600000000|132035
+    receiver_phone_number: +48 XXX XXX XXX
+    qr_code: P|+48XXXXXXXXX|111111
 ```
 
 Pola używane przez kartę:
@@ -453,6 +453,43 @@ Pola używane przez kartę:
 | pola numeru przesyłki | wykorzystywane przy scalaniu |
 
 Karta potrafi także wyciągać numer przesyłki z parametrów URL, m.in. `parcel`, `shipment`, `tracking`, `tracking-id`, `trackingId`, `shipment-id`, `shipmentId`, `piececode`, `pieceCode`, `waybill`, `numer`, `number`.
+
+---
+
+# 🔎 Linki do śledzenia
+
+Karta tworzy klikalne linki do śledzenia także wtedy, gdy integracja przewoźnika nie zwraca gotowego URL.
+
+Dla numeru pochodzącego bezpośrednio z integracji przewoźnika generowane są linki:
+
+| Przewoźnik | Link |
+|---|---|
+| InPost | `https://inpost.pl/sledzenie-przesylek?number=...` |
+| DPD | `https://tracktrace.dpd.com.pl/parcelDetails?p1=...` |
+| DHL | `https://sprawdz.dhl.com.pl/laststatus.aspx?NR1=...` |
+
+Jeżeli Allegro udostępnia własny `tracing_url`, karta zachowuje go jako osobny link. W popupie mogą więc pojawić się np. dwa odnośniki: **Śledź w Allegro** oraz **Śledź w DPD**.
+
+> Link przewoźnika jest generowany wyłącznie z numeru pochodzącego z jego własnej integracji. Numer `AD...` z Allegro Delivery nie jest automatycznie wysyłany do trackera DPD/DHL, ponieważ może być identyfikatorem Allegro, a nie numerem listu przewozowego przewoźnika.
+
+---
+
+# 🔀 Allegro Delivery `AD...` a numer przewoźnika
+
+Dla przesyłek Allegro Delivery partnerem logistycznym może być DPD lub DHL, ale Allegro może pokazywać własny numer zaczynający się od `AD...`, podczas gdy integracja DPD/DHL widzi inny numer listu przewozowego.
+
+Przykład:
+
+```text
+Allegro: ADXXXXXXXXXXXXXXXX
+DPD:     XXXXXXXXXXXXXU
+```
+
+Te dwa numery nie mają wspólnej wartości, więc karta nie może ich bezpiecznie scalić wyłącznie po numerze. Aktualne sensory używane przez kartę nie przekazują jawnego mapowania `AD... -> numer DPD/DHL`.
+
+Z tego powodu automatyczne scalanie w takiej sytuacji jest celowo wyłączone. Zgadnięcie na podstawie samego nadawcy lub kolejności paczek mogłoby połączyć dwie różne przesyłki.
+
+Najlepszym rozwiązaniem będzie w przyszłości wykorzystanie dodatkowego numeru referencyjnego, jeżeli zostanie wystawiony przez integrację Allegro albo Shipment Tracking.
 
 ---
 
@@ -518,9 +555,9 @@ DHL | Allegro
 Osoba / konto:
 
 ```text
-InPost: Arek
-DPD: Kasia
-DHL: Arek
+InPost: xxx
+DPD: yyy
+DHL: xxx
 ```
 
 ---
@@ -646,7 +683,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.8.2
+/local/community/parcel-card/parcel-card.js?v=1.8.3
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
@@ -729,5 +766,5 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 # 📄 Aktualna wersja
 
 ```text
-1.8.2
+1.8.3
 ```
