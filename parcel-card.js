@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.8.2";
+  const CARD_VERSION = "1.8.3";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -762,6 +762,8 @@
     _normalizePackage(raw) {
       const offersRaw = raw?.Offers ?? raw?.offers ?? [];
       const offers = Array.isArray(offersRaw) ? offersRaw : [offersRaw];
+      const trackingUrl = raw?.tracing_url ?? raw?.tracking_url ?? "";
+      const trackingNumber = this._extractTrackingNumber(raw, trackingUrl);
 
       return {
         raw,
@@ -777,11 +779,10 @@
           })
           .filter(Boolean),
         deliveryName: raw?.delivery_name ?? raw?.deliveryName ?? "",
-        trackingUrl: raw?.tracing_url ?? raw?.tracking_url ?? "",
-        trackingNumber: this._extractTrackingNumber(
-          raw,
-          raw?.tracing_url ?? raw?.tracking_url ?? ""
-        ),
+        trackingUrl,
+        trackingNumber,
+        allegroTrackingNumber: trackingNumber,
+        carrierTrackingNumber: "",
         pickupCode: raw?.pickup_code ?? raw?.pickupCode ?? null,
         qrCode: raw?.qr_code ?? raw?.qrCode ?? null
       };
@@ -924,6 +925,8 @@
         deliveryName: "InPost",
         trackingUrl: "",
         trackingNumber: this._extractTrackingNumber(raw),
+        allegroTrackingNumber: "",
+        carrierTrackingNumber: this._extractTrackingNumber(raw),
         pickupCode: raw?.kod_odbioru ?? null,
         qrCode: raw?.qr ?? null,
         locker: raw?.paczkomat || "",
@@ -1125,6 +1128,8 @@
           deliveryName: "InPost",
           trackingUrl: "",
           trackingNumber: "",
+          allegroTrackingNumber: "",
+          carrierTrackingNumber: "",
           pickupCode: null,
           qrCode: null,
           locker: "",
@@ -1150,6 +1155,8 @@
           deliveryName: "InPost",
           trackingUrl: "",
           trackingNumber: "",
+          allegroTrackingNumber: "",
+          carrierTrackingNumber: "",
           pickupCode: null,
           qrCode: null,
           locker: "",
@@ -1277,6 +1284,8 @@
         deliveryName: carrierUpper,
         trackingUrl: "",
         trackingNumber: this._extractTrackingNumber(raw),
+        allegroTrackingNumber: "",
+        carrierTrackingNumber: this._extractTrackingNumber(raw),
         pickupCode: null,
         qrCode: null,
         updated: raw?.aktualizacja || "",
@@ -1334,6 +1343,8 @@
             deliveryName: String(carrier).toUpperCase(),
             trackingUrl: "",
             trackingNumber: "",
+            allegroTrackingNumber: "",
+            carrierTrackingNumber: "",
             pickupCode: null,
             qrCode: null,
             updated: "",
@@ -1473,6 +1484,10 @@
           status: inpost.status || allegro.status,
           trackingNumber:
             inpost.trackingNumber || allegro.trackingNumber || "",
+          allegroTrackingNumber:
+            allegro.allegroTrackingNumber || allegro.trackingNumber || "",
+          carrierTrackingNumber:
+            inpost.carrierTrackingNumber || inpost.trackingNumber || "",
           pickupCode: inpost.pickupCode || allegro.pickupCode,
           qrCode: inpost.qrCode || allegro.qrCode,
           locker: inpost.locker,
@@ -1576,6 +1591,10 @@
         seller: preferSeller(a.seller, b.seller),
         status: betterStatus,
         trackingNumber: a.trackingNumber || b.trackingNumber || "",
+        allegroTrackingNumber:
+          a.allegroTrackingNumber || b.allegroTrackingNumber || "",
+        carrierTrackingNumber:
+          a.carrierTrackingNumber || b.carrierTrackingNumber || "",
         trackingUrl: a.trackingUrl || b.trackingUrl || "",
         pickupCode: a.pickupCode || b.pickupCode || null,
         qrCode: a.qrCode || b.qrCode || null,
@@ -1702,6 +1721,82 @@
       }
 
       return this._carrierFor(pkg?.deliveryName);
+    }
+
+    _carrierTrackingUrl(pkg) {
+      const tracking = this._normalizeMatchValue(
+        pkg?.carrierTrackingNumber
+      );
+
+      // Numer z Allegro Delivery (np. AD...) nie musi być numerem listu
+      // przewozowego partnera logistycznego. Generujemy link przewoźnika
+      // wyłącznie z numeru pochodzącego z jego własnej integracji.
+      if (!tracking) return "";
+
+      const carrier = this._carrierForPackage(pkg);
+      const encoded = encodeURIComponent(tracking);
+
+      if (carrier === "InPost") {
+        return `https://inpost.pl/sledzenie-przesylek?number=${encoded}`;
+      }
+
+      if (carrier === "DPD") {
+        return `https://tracktrace.dpd.com.pl/parcelDetails?p1=${encoded}`;
+      }
+
+      if (carrier === "DHL") {
+        return `https://sprawdz.dhl.com.pl/laststatus.aspx?NR1=${encoded}`;
+      }
+
+      return "";
+    }
+
+    _trackingLinkLabel(url, pkg, isCarrierLink = false) {
+      if (isCarrierLink) {
+        return `Śledź w ${this._carrierForPackage(pkg)}`;
+      }
+
+      try {
+        const host = new URL(url, window.location.origin).hostname.toLowerCase();
+        if (host.includes("inpost.pl")) return "Śledź w InPost";
+        if (host.includes("dpd.com.pl")) return "Śledź w DPD";
+        if (host.includes("dhl.com.pl")) return "Śledź w DHL";
+        if (host.includes("allegro.pl")) return "Śledź w Allegro";
+      } catch (_) {}
+
+      return "Śledź przesyłkę";
+    }
+
+    _trackingLinksForPackage(pkg) {
+      const links = [];
+      const seen = new Set();
+
+      const add = (url, label, source) => {
+        const safe = this._safeUrl(url);
+        if (!safe || seen.has(safe)) return;
+        seen.add(safe);
+        links.push({ url: safe, label, source });
+      };
+
+      const sourceUrl = this._safeUrl(pkg?.trackingUrl);
+      if (sourceUrl) {
+        add(
+          sourceUrl,
+          this._trackingLinkLabel(sourceUrl, pkg, false),
+          "source"
+        );
+      }
+
+      const carrierUrl = this._carrierTrackingUrl(pkg);
+      if (carrierUrl) {
+        add(
+          carrierUrl,
+          this._trackingLinkLabel(carrierUrl, pkg, true),
+          "carrier"
+        );
+      }
+
+      return links;
     }
 
     _packageSources(pkg) {
@@ -2029,7 +2124,7 @@
     }
 
     _renderPackage(pkg) {
-      const track = this._safeUrl(pkg.trackingUrl);
+      const trackingLinks = this._trackingLinksForPackage(pkg);
       const statusLabel = this._statusLabel(pkg.status);
       const statusIcon = this._statusIcon(pkg.status);
 
@@ -2079,17 +2174,25 @@
         `
         : "";
 
-      const tracking = track
+      const tracking = trackingLinks.length
         ? `
-          <a
-            class="track-link"
-            href="${this._e(track)}"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Śledź przesyłkę
-            <ha-icon icon="mdi:arrow-right"></ha-icon>
-          </a>
+          <div class="tracking-links">
+            ${trackingLinks
+              .map(
+                (item) => `
+                  <a
+                    class="track-link"
+                    href="${this._e(item.url)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ${this._e(item.label)}
+                    <ha-icon icon="mdi:open-in-new"></ha-icon>
+                  </a>
+                `
+              )
+              .join("")}
+          </div>
         `
         : "";
 
@@ -2818,11 +2921,18 @@
             max-width:100%;
           }
 
+          .tracking-links {
+            display:flex;
+            flex-wrap:wrap;
+            gap:8px 12px;
+            margin-top:10px;
+          }
+
           .track-link {
             display:inline-flex;
             align-items:center;
             gap:4px;
-            margin-top:10px;
+            margin-top:0;
             font-size:13px;
             font-weight:600;
             color:var(--primary-color);
