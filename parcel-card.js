@@ -93,19 +93,40 @@
   }
 
   function normalizePeople(config) {
-    if (!Array.isArray(config?.inpost_people)) {
-      return deepClone(DEFAULT_PEOPLE);
+    if (Array.isArray(config?.inpost_people)) {
+      return config.inpost_people.map((p, index) => ({
+        name: String(p?.name || `Osoba ${index + 1}`),
+        source_entity: String(
+          p?.source_entity ||
+          p?.ready_entity ||
+          p?.transit_entity ||
+          ""
+        )
+      }));
     }
 
-    return config.inpost_people.map((p, index) => ({
-      name: String(p?.name || `Osoba ${index + 1}`),
-      source_entity: String(
-        p?.source_entity ||
-        p?.ready_entity ||
-        p?.transit_entity ||
-        ""
-      )
-    }));
+    // Ogólna migracja starszego formatu *_ready_entity / *_transit_entity
+    // bez przechowywania w kodzie prywatnych nazw osób.
+    const legacy = new Map();
+
+    for (const [key, value] of Object.entries(config || {})) {
+      const match = key.match(/^(.+)_(ready|transit)_entity$/);
+      if (!match || !value) continue;
+
+      const prefix = match[1];
+      const type = match[2];
+      if (!legacy.has(prefix)) legacy.set(prefix, {});
+      legacy.get(prefix)[type] = String(value);
+    }
+
+    if (legacy.size) {
+      return [...legacy.values()].map((item, index) => ({
+        name: `Osoba ${index + 1}`,
+        source_entity: item.ready || item.transit || ""
+      }));
+    }
+
+    return deepClone(DEFAULT_PEOPLE);
   }
 
   function normalizeSourcePeople(items) {
