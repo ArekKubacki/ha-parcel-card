@@ -1,0 +1,44 @@
+name: Create v1.8.3 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.8.3.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.8.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.8.3 already exists."
+            exit 0
+          fi
+
+          gh release create v1.8.3 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.8.3" \
+            --notes "HA Parcel Card v1.8.3
+
+          - Added direct tracking links for InPost, DPD and DHL.
+          - Preserved Allegro tracking links alongside carrier links.
+          - Separated Allegro Delivery identifiers from carrier waybill numbers.
+          - Improved DHL and DPD parcel details and merge diagnostics.
+          - Anonymized public documentation and example configuration.
+          - Added HACS metadata, validation workflow and README badges."
+
+          gh release upload v1.8.3 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
