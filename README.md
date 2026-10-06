@@ -14,6 +14,8 @@ Karta potrafi rozpoznać, że ta sama fizyczna przesyłka występuje jednocześn
 
 > **Ważne:** `ha-parcel-card` jest wyłącznie kartą frontendową. Sama nie loguje się do InPost, DPD, DHL ani Allegro. Dane muszą być już dostępne w Home Assistant przez odpowiednie custom componenty.
 
+![HA Parcel Card – anonymized preview](https://raw.githubusercontent.com/ArekKubacki/ha-parcel-card/main/docs/preview.svg)
+
 ---
 
 ## ✨ Najważniejsze funkcje
