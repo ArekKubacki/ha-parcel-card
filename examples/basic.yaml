@@ -1,0 +1,28 @@
+type: custom:parcel-card
+
+inpost_people:
+  - name: Arek
+    source_entity: sensor.inpost_inpost_arek_do_odbioru
+  - name: Kasia
+    source_entity: sensor.inpost_inpost_kasia_do_odbioru
+
+dpd_people:
+  - name: Arek
+    source_entity: sensor.dpd_arek_w_drodze
+
+dhl_people:
+  - name: Arek
+    source_entity: sensor.dhl_arek_w_drodze
+
+allegro_progress_entity: sensor.allegro_arek_pl_in_progress
+
+mail_entities:
+  - sensor.listy_w_skrzynce
+
+columns: 3
+pickup_color: "#E3F3E7"
+transit_color: "#E7F1FA"
+other_color: "#FFFFFF"
+show_pickup_qr: true
+show_empty_message: true
+empty_message: "Brak przesyłek"
