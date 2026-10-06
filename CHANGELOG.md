@@ -2,6 +2,19 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.8.3
+
+- Anonymized README examples.
+- Added generated tracking links for InPost, DPD and DHL.
+- Preserved Allegro-provided tracking links alongside carrier tracking links.
+- Separated Allegro tracking identifiers from carrier waybill numbers.
+- Allegro Delivery `AD...` identifiers are not incorrectly sent to DPD/DHL trackers.
+- Documented the limitation of merging Allegro Delivery `AD...` identifiers with a different DPD/DHL waybill.
+
+# Changelog
+
+All notable changes to HA Parcel Card are documented here.
+
 ## 1.8.2
 
 - Improved DHL support based on `jrx-code/hassio-integration-shipment-tracking`.
