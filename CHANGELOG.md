@@ -2,6 +2,12 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.8.4
+
+- Fixed duplicate tracking links after merging Allegro with InPost, DPD or DHL.
+- If Allegro already provides a direct link to the same carrier, Parcel Card now shows it only once.
+- Generated carrier tracking links are still used when Allegro does not provide a direct carrier link.
+
 ## 1.8.3
 
 - Anonymized README examples.
