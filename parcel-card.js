@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.8.3";
+  const CARD_VERSION = "1.8.4";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -1751,12 +1751,22 @@
 
     _trackingLinksForPackage(pkg) {
       const links = [];
-      const seen = new Set();
+      const seenUrls = new Set();
+      const seenLabels = new Set();
 
       const add = (url, label, source) => {
         const safe = this._safeUrl(url);
-        if (!safe || seen.has(safe)) return;
-        seen.add(safe);
+        const normalizedLabel = String(label || "").trim().toLowerCase();
+
+        if (!safe || seenUrls.has(safe)) return;
+
+        // Allegro często zwraca już bezpośredni link przewoźnika, np. InPost.
+        // W takim przypadku nie dokładamy drugiego, wygenerowanego linku
+        // prowadzącego do tego samego przewoźnika.
+        if (normalizedLabel && seenLabels.has(normalizedLabel)) return;
+
+        seenUrls.add(safe);
+        if (normalizedLabel) seenLabels.add(normalizedLabel);
         links.push({ url: safe, label, source });
       };
 
