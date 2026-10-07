@@ -1,0 +1,45 @@
+name: Create v1.8.4 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.8.4.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate JavaScript syntax
+        run: node --check parcel-card.js
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.8.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.8.4 already exists."
+            exit 0
+          fi
+
+          gh release create v1.8.4 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.8.4" \
+            --notes "HA Parcel Card v1.8.4
+
+          - Fixed duplicated tracking buttons after Allegro + carrier merge.
+          - When Allegro already links directly to InPost, DPD or DHL, the generated carrier link is suppressed.
+          - Carrier-generated tracking links remain available when no direct carrier link is supplied.
+          - Updated documentation and changelog."
+
+          gh release upload v1.8.4 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
