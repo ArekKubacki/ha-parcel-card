@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.8.4";
+  const CARD_VERSION = "1.9.0";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -567,6 +567,14 @@
       this._selectedCarrier = null;
       this._lastSignature = null;
 
+      // Allegro Buyer 0.3.0 przeniosło kod odbioru, telefon i QR z atrybutów
+      // encji do usługi allegro.get_pickup_code. Przechowujemy odpowiedź tylko
+      // w pamięci instancji karty — nigdy nie zapisujemy sekretów do konfiguracji.
+      this._allegroPickupOrders = [];
+      this._allegroPickupLoading = false;
+      this._allegroPickupError = "";
+      this._allegroConfigEntryId = null;
+
       // Home Assistant przełącza widoki bez pełnego przeładowania strony.
       // Jeśli użytkownik wyjdzie z widoku z otwartym <dialog>, przeglądarka
       // może pozostawić go w top-layer. Zamykamy popup przy każdej nawigacji.
@@ -741,32 +749,149 @@
       return this._hass?.states?.[this._config.allegro_progress_entity];
     }
 
+    _offerMatchKey(offers) {
+      return (Array.isArray(offers) ? offers : [])
+        .map((item) => String(item || "").trim().toLowerCase())
+        .filter(Boolean)
+        .sort()
+        .join("\n");
+    }
+
+    _allegroPickupOrderFor({ seller, offers, trackingNumber }) {
+      const rows = Array.isArray(this._allegroPickupOrders)
+        ? this._allegroPickupOrders
+        : [];
+
+      if (!rows.length) return null;
+
+      const sellerKey = String(seller || "").trim().toLowerCase();
+      const offerKey = this._offerMatchKey(offers);
+      const trackingKey = this._normalizeMatchValue(trackingNumber);
+
+      let candidates = rows.filter(
+        (row) =>
+          !sellerKey ||
+          String(row?.seller || "").trim().toLowerCase() === sellerKey
+      );
+
+      if (!candidates.length) return null;
+
+      // Najpewniejsze dopasowanie: numer z linku/sensora występuje w waybills
+      // zwróconych przez usługę Allegro Buyer 0.3.0.
+      if (trackingKey) {
+        const byWaybill = candidates.filter((row) =>
+          (Array.isArray(row?.waybills) ? row.waybills : [])
+            .some(
+              (value) =>
+                this._normalizeMatchValue(value) === trackingKey
+            )
+        );
+
+        if (byWaybill.length === 1) return byWaybill[0];
+      }
+
+      // Kolejny stabilny sygnał to sprzedawca + identyczny zestaw ofert.
+      if (offerKey) {
+        const byOffers = candidates.filter(
+          (row) => this._offerMatchKey(row?.offers) === offerKey
+        );
+
+        if (byOffers.length === 1) return byOffers[0];
+      }
+
+      // Tylko jeśli sprzedawca wskazuje dokładnie jeden otwarty rekord.
+      return candidates.length === 1 ? candidates[0] : null;
+    }
+
     _normalizePackage(raw) {
       const offersRaw = raw?.Offers ?? raw?.offers ?? [];
-      const offers = Array.isArray(offersRaw) ? offersRaw : [offersRaw];
+      const offers = (Array.isArray(offersRaw) ? offersRaw : [offersRaw])
+        .map((item) => {
+          if (typeof item === "string") return item;
+          return item?.name ?? item?.title ?? item?.offer_name ?? "Produkt";
+        })
+        .filter(Boolean);
+
+      const seller = raw?.Seller ?? raw?.seller ?? "Sprzedawca";
       const trackingUrl = raw?.tracing_url ?? raw?.tracking_url ?? "";
-      const trackingNumber = this._extractTrackingNumber(raw, trackingUrl);
+      const extractedTracking = this._extractTrackingNumber(raw, trackingUrl);
+
+      const pickupOrder = this._allegroPickupOrderFor({
+        seller,
+        offers,
+        trackingNumber: extractedTracking
+      });
+
+      const allegroWaybills = [
+        ...new Set(
+          (Array.isArray(pickupOrder?.waybills)
+            ? pickupOrder.waybills
+            : [])
+            .map((value) => this._normalizeMatchValue(value))
+            .filter(Boolean)
+        )
+      ];
+
+      // Przy jednym waybillu możemy użyć go jako fallback numeru przesyłki.
+      // Przy kilku zachowujemy listę, ale nie zgadujemy, która fizyczna paczka
+      // odpowiada pojedynczemu rekordowi karty.
+      const serviceTracking =
+        allegroWaybills.length === 1 ? allegroWaybills[0] : "";
+
+      const trackingNumber = extractedTracking || serviceTracking;
 
       return {
         raw,
         source: "allegro",
         sources: ["Allegro"],
         assignments: [],
-        seller: raw?.Seller ?? raw?.seller ?? "Sprzedawca",
+        seller,
         status: String(raw?.Status ?? raw?.status ?? ""),
-        offers: offers
-          .map((item) => {
-            if (typeof item === "string") return item;
-            return item?.name ?? item?.title ?? item?.offer_name ?? "Produkt";
-          })
-          .filter(Boolean),
+        offers,
         deliveryName: raw?.delivery_name ?? raw?.deliveryName ?? "",
         trackingUrl,
         trackingNumber,
         allegroTrackingNumber: trackingNumber,
+        allegroWaybills,
         carrierTrackingNumber: "",
-        pickupCode: raw?.pickup_code ?? raw?.pickupCode ?? null,
-        qrCode: raw?.qr_code ?? raw?.qrCode ?? null
+        pickupCode:
+          raw?.pickup_code ??
+          raw?.pickupCode ??
+          pickupOrder?.pickup_code ??
+          null,
+        receiverPhoneNumber:
+          raw?.receiver_phone_number ??
+          raw?.receiverPhoneNumber ??
+          pickupOrder?.receiver_phone_number ??
+          null,
+        qrCode:
+          raw?.qr_code ??
+          raw?.qrCode ??
+          pickupOrder?.qr_code ??
+          null,
+
+        // Allegro Buyer 0.3.0 wystawia te dane bezpośrednio w details[].
+        locker:
+          raw?.pickup_point_id ??
+          raw?.pickup_point_name ??
+          pickupOrder?.pickup_point_name ??
+          "",
+        address: raw?.pickup_point_address ?? "",
+        deadline: raw?.pickup_deadline ?? "",
+        externalStatus:
+          raw?.delivery_status ??
+          "",
+        deliveryDescription:
+          raw?.delivery_description ??
+          "",
+        deliveryDetails:
+          raw?.delivery_details ??
+          "",
+        pickupPointDescription:
+          raw?.pickup_point_description ??
+          "",
+        isDefaultPickupPoint:
+          raw?.is_default_pickup_point ?? null
       };
     }
 
@@ -774,6 +899,75 @@
       const details = this._progressEntity()?.attributes?.details;
       if (!Array.isArray(details)) return [];
       return details.map((p) => this._normalizePackage(p));
+    }
+
+    async _resolveAllegroConfigEntryId() {
+      if (this._allegroConfigEntryId) {
+        return this._allegroConfigEntryId;
+      }
+
+      const entityId = this._config.allegro_progress_entity;
+      if (!entityId || !this._hass?.callWS) return "";
+
+      try {
+        const entry = await this._hass.callWS({
+          type: "config/entity_registry/get",
+          entity_id: entityId
+        });
+
+        this._allegroConfigEntryId =
+          String(entry?.config_entry_id || "");
+
+        return this._allegroConfigEntryId;
+      } catch (_) {
+        return "";
+      }
+    }
+
+    async _loadAllegroPickupSecrets() {
+      if (!this._hass || this._allegroPickupLoading) return;
+
+      // Starsze Allegro Buyer (<0.3.0) nie ma tej usługi. Karta nadal działa
+      // z dawnymi pickup_code / qr_code obecnymi w atrybutach sensora.
+      if (!this._hass.services?.allegro?.get_pickup_code) return;
+
+      this._allegroPickupLoading = true;
+      this._allegroPickupError = "";
+
+      try {
+        const data = {};
+        const configEntryId =
+          await this._resolveAllegroConfigEntryId();
+
+        if (configEntryId) {
+          data.config_entry_id = configEntryId;
+        }
+
+        const result = await this._hass.callService(
+          "allegro",
+          "get_pickup_code",
+          data,
+          undefined,
+          false,
+          true
+        );
+
+        const response = result?.response ?? result ?? {};
+        this._allegroPickupOrders = Array.isArray(response?.orders)
+          ? response.orders
+          : [];
+      } catch (error) {
+        this._allegroPickupError =
+          String(error?.message || error || "Nie udało się pobrać kodu odbioru");
+      } finally {
+        this._allegroPickupLoading = false;
+        this._lastSignature = null;
+
+        // Jeśli popup nadal jest otwarty, od razu pokaż kod/QR pobrany usługą.
+        if (this._selectedCarrier && this.isConnected) {
+          this._render();
+        }
+      }
     }
 
     _normalizeMatchValue(value) {
@@ -1365,18 +1559,41 @@
         .filter((group) => group.items.length > 0);
     }
 
+    _trackingCandidates(pkg) {
+      const values = [
+        pkg?.trackingNumber,
+        pkg?.carrierTrackingNumber,
+        pkg?.allegroTrackingNumber
+      ];
+
+      // Wiele waybilli może oznaczać kilka fizycznych paczek. Żeby nie skleić
+      // ich w jedną, alias z usługi Allegro wykorzystujemy do automatycznego
+      // merge tylko wtedy, gdy jest dokładnie jeden.
+      const waybills = Array.isArray(pkg?.allegroWaybills)
+        ? pkg.allegroWaybills
+        : [];
+
+      if (waybills.length === 1) {
+        values.push(waybills[0]);
+      }
+
+      return [
+        ...new Set(
+          values
+            .map((value) => this._normalizeMatchValue(value))
+            .filter(Boolean)
+        )
+      ];
+    }
+
     _packageMatchMethod(allegro, inpost) {
-      const allegroTracking = this._normalizeMatchValue(
-        allegro.trackingNumber
+      const allegroTracking = new Set(
+        this._trackingCandidates(allegro)
       );
-      const inpostTracking = this._normalizeMatchValue(
-        inpost.trackingNumber
-      );
+      const inpostTracking = this._trackingCandidates(inpost);
 
       if (
-        allegroTracking &&
-        inpostTracking &&
-        allegroTracking === inpostTracking
+        inpostTracking.some((value) => allegroTracking.has(value))
       ) {
         return "tracking_number";
       }
@@ -1484,6 +1701,19 @@
           inpostStatus: inpost.inpostStatus,
           inpostRaw: inpost.raw,
           allegroRaw: allegro.raw,
+          allegroWaybills: Array.isArray(allegro.allegroWaybills)
+            ? allegro.allegroWaybills
+            : [],
+          receiverPhoneNumber:
+            allegro.receiverPhoneNumber || inpost.receiverPhoneNumber || null,
+          deliveryDescription:
+            allegro.deliveryDescription || "",
+          deliveryDetails:
+            allegro.deliveryDetails || "",
+          pickupPointDescription:
+            allegro.pickupPointDescription || "",
+          isDefaultPickupPoint:
+            allegro.isDefaultPickupPoint ?? null,
           mergedBy
         });
       }
@@ -1575,6 +1805,12 @@
         trackingNumber: a.trackingNumber || b.trackingNumber || "",
         allegroTrackingNumber:
           a.allegroTrackingNumber || b.allegroTrackingNumber || "",
+        allegroWaybills: [
+          ...new Set([
+            ...(Array.isArray(a.allegroWaybills) ? a.allegroWaybills : []),
+            ...(Array.isArray(b.allegroWaybills) ? b.allegroWaybills : [])
+          ])
+        ],
         carrierTrackingNumber:
           a.carrierTrackingNumber || b.carrierTrackingNumber || "",
         trackingUrl: a.trackingUrl || b.trackingUrl || "",
@@ -1611,24 +1847,42 @@
       const keyed = new Map();
 
       for (const pkg of packages) {
-        const tracking = this._normalizeMatchValue(pkg.trackingNumber);
         const carrier = this._carrierForPackage(pkg);
+        const candidates = this._trackingCandidates(pkg);
 
         // Null/puste numery nigdy nie uczestniczą w scalaniu.
-        if (!tracking || !carrier) {
+        if (!candidates.length || !carrier) {
           result.push(pkg);
           continue;
         }
 
-        const key = `${carrier}|${tracking}`;
+        const matchingIndexes = [
+          ...new Set(
+            candidates
+              .map((tracking) => keyed.get(`${carrier}|${tracking}`))
+              .filter((index) => index !== undefined)
+          )
+        ];
 
-        if (!keyed.has(key)) {
-          keyed.set(key, result.length);
+        // Jeśli kilka aliasów prowadzi do różnych rekordów, dopasowanie jest
+        // niejednoznaczne. Nie zgadujemy i zostawiamy paczkę osobno.
+        if (matchingIndexes.length > 1) {
           result.push(pkg);
           continue;
         }
 
-        const index = keyed.get(key);
+        if (matchingIndexes.length === 0) {
+          const index = result.length;
+          result.push(pkg);
+
+          for (const tracking of candidates) {
+            const key = `${carrier}|${tracking}`;
+            if (!keyed.has(key)) keyed.set(key, index);
+          }
+          continue;
+        }
+
+        const index = matchingIndexes[0];
         result[index] = {
           ...this._mergePackagePair(
             result[index],
@@ -1636,6 +1890,13 @@
           ),
           mergedBy: "tracking_number"
         };
+
+        // Po merge rejestrujemy również nowe aliasy (np. waybill z usługi
+        // Allegro Buyer), aby późniejsze rekordy mogły znaleźć ten sam wpis.
+        for (const tracking of this._trackingCandidates(result[index])) {
+          const key = `${carrier}|${tracking}`;
+          if (!keyed.has(key)) keyed.set(key, index);
+        }
       }
 
       return result;
@@ -2426,6 +2687,47 @@
           ? `<div class="inpost-raw-status">${this._e(this._carrierForPackage(pkg))}: ${this._e(pkg.externalStatus)}</div>`
           : "";
 
+      const allegroDeliveryLine =
+        pkg.deliveryDescription || pkg.deliveryDetails
+          ? `
+            <div class="allegro-delivery-line">
+              <ha-icon icon="mdi:package-variant-closed"></ha-icon>
+              <span>
+                ${pkg.deliveryDescription
+                  ? `<b>${this._e(pkg.deliveryDescription)}</b>`
+                  : ""}
+                ${pkg.deliveryDescription && pkg.deliveryDetails ? " · " : ""}
+                ${pkg.deliveryDetails ? this._e(pkg.deliveryDetails) : ""}
+              </span>
+            </div>
+          `
+          : "";
+
+      const pickupPointDescriptionLine =
+        pkg.pickupPointDescription &&
+        pkg.pickupPointDescription !== pkg.locker
+          ? `
+            <div class="pickup-point-description-line">
+              <ha-icon icon="mdi:map-marker-information-outline"></ha-icon>
+              <span>${this._e(pkg.pickupPointDescription)}</span>
+            </div>
+          `
+          : "";
+
+      const pickupServiceLine =
+        this._allegroPickupLoading &&
+        Array.isArray(pkg.sources) &&
+        pkg.sources.includes("Allegro") &&
+        pkg.status === "AVAILABLE_FOR_PICKUP" &&
+        !pkg.pickupCode
+          ? `
+            <div class="pickup-service-line">
+              <ha-icon icon="mdi:loading" class="spin"></ha-icon>
+              <span>Pobieranie kodu odbioru z Allegro…</span>
+            </div>
+          `
+          : "";
+
       const multiLockerLine = "";
       return `
         <article class="package">
@@ -2447,16 +2749,19 @@
           ${mergedLine}
           ${inpostRawStatus}
           ${externalRawStatus}
+          ${allegroDeliveryLine}
           ${trackingNumberLine}
           ${senderAddressLine}
           ${updatedLine}
           ${lockerLine}
+          ${pickupPointDescriptionLine}
           ${deliveryMapLine}
           ${courierLine}
           ${mpsLine}
           ${sharedLine}
           ${multiLockerLine}
           ${deadline}
+          ${pickupServiceLine}
           ${pickup}
           ${pickupQr}
           ${offers}
@@ -2804,6 +3109,9 @@
           .tracking-number-line,
           .assignment-line,
           .merged-line,
+          .allegro-delivery-line,
+          .pickup-point-description-line,
+          .pickup-service-line,
           .sender-address-line,
           .updated-line,
           .delivery-map-line,
@@ -2823,6 +3131,9 @@
           .tracking-number-line ha-icon,
           .assignment-line ha-icon,
           .merged-line ha-icon,
+          .allegro-delivery-line ha-icon,
+          .pickup-point-description-line ha-icon,
+          .pickup-service-line ha-icon,
           .sender-address-line ha-icon,
           .updated-line ha-icon,
           .delivery-map-line ha-icon,
@@ -2891,6 +3202,14 @@
           .pickup-qr-label {
             font-size:11px;
             opacity:.65;
+          }
+
+          .spin {
+            animation: parcel-spin 1s linear infinite;
+          }
+
+          @keyframes parcel-spin {
+            to { transform: rotate(360deg); }
           }
 
           .pickup-qr-canvas {
@@ -2996,6 +3315,10 @@
             const name = button.dataset.groupName || "";
             this._selectedCarrier = `${type}:${name}`;
             this._render();
+
+            // Allegro Buyer 0.3.0 trzyma kod odbioru / telefon / QR wyłącznie
+            // w odpowiedzi usługi, więc pobieramy je dopiero po otwarciu popupu.
+            this._loadAllegroPickupSecrets();
           });
         });
 
