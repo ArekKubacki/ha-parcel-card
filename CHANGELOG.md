@@ -2,6 +2,17 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.9.0
+
+- Added compatibility with Allegro Buyer 0.3.0.
+- Pickup code, receiver phone number and QR are now loaded from the response-only `allegro.get_pickup_code` service.
+- Allegro config entry is resolved automatically from the configured `in_progress` entity, including setups with multiple Allegro accounts.
+- Added support for new Allegro parcel metadata: pickup point ID/name/description/address, delivery status/description/details and pickup deadline.
+- Added exact matching against the single `waybill` returned by Allegro Buyer, improving Allegro + InPost/DPD/DHL merging when the public `AD...` identifier differs from the carrier waybill.
+- Multiple Allegro waybills are intentionally not used as automatic merge aliases to avoid collapsing several physical parcels into one.
+- Pickup secrets remain in the card's runtime memory and are never written to Lovelace configuration.
+- Kept compatibility with Allegro Buyer 0.2.x sensor attributes.
+
 ## 1.8.4
 
 - Fixed duplicate tracking links after merging Allegro with InPost, DPD or DHL.
