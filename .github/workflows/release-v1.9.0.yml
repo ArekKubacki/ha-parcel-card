@@ -1,0 +1,48 @@
+name: Create v1.9.0 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.9.0.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate JavaScript syntax
+        run: node --check parcel-card.js
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.9.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.9.0 already exists."
+            exit 0
+          fi
+
+          gh release create v1.9.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.9.0" \
+            --notes "HA Parcel Card v1.9.0
+
+          - Added compatibility with Allegro Buyer 0.3.0.
+          - Pickup code and QR are loaded on demand from allegro.get_pickup_code.
+          - Automatically resolves the Allegro config entry from the configured sensor.
+          - Added pickup point, delivery description and pickup deadline metadata from Allegro.
+          - Uses a single exact Allegro waybill as an additional merge alias for InPost, DPD and DHL.
+          - Does not guess when Allegro returns multiple waybills.
+          - Keeps compatibility with Allegro Buyer 0.2.x."
+
+          gh release upload v1.9.0 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
