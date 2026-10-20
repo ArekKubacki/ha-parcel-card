@@ -149,7 +149,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.8.4
+/local/community/parcel-card/parcel-card.js?v=1.9.0
 ```
 
 ---
@@ -431,7 +431,11 @@ Obsługiwane pola:
 
 # 🛒 Allegro — format danych
 
-Karta odczytuje atrybut `details` z sensora `in_progress`:
+Karta współpracuje z **Allegro Buyer 0.3.0+**:
+
+https://github.com/Przemko92/home-assistant-allegro
+
+Podstawą nadal jest atrybut `details` sensora `in_progress`:
 
 ```yaml
 details:
@@ -442,23 +446,86 @@ details:
     tracing_url: >-
       https://inpost.pl/sledzenie-przesylek?number=XXXXXXXXXXXXXXXXXXXXXXXX
     delivery_name: Allegro Paczkomaty InPost
-    pickup_code: 132 035
-    receiver_phone_number: +48 XXX XXX XXX
-    qr_code: P|+48XXXXXXXXX|111111
+    pickup_point_id: XXX00X
+    pickup_point_name: Paczkomat XXX00X
+    pickup_point_description: Przykładowy punkt odbioru
+    pickup_point_address: "ul. Xxxxx 1, 00-000 Xxxxx"
+    delivery_status: READY_FOR_PICKUP
+    delivery_description: Przesyłka czeka na odbiór
+    delivery_details: ""
+    pickup_deadline: "2026-10-20T18:00:00+02:00"
 ```
 
-Pola używane przez kartę:
+## Breaking change w Allegro Buyer 0.3.0
+
+Od wersji **0.3.0** integracja Allegro **nie przechowuje już** w atrybutach sensorów:
+
+- `pickup_code`,
+- `receiver_phone_number`,
+- `qr_code`.
+
+Dane te są zwracane wyłącznie przez usługę:
+
+```text
+allegro.get_pickup_code
+```
+
+HA Parcel Card obsługuje ten mechanizm automatycznie. Po otwarciu popupu paczek karta:
+
+1. rozpoznaje `config_entry_id` na podstawie skonfigurowanego sensora Allegro,
+2. wywołuje `allegro.get_pickup_code` z odpowiedzią,
+3. dopasowuje odpowiedź do zamówienia po numerze `waybill`, sprzedawcy i produktach,
+4. pokazuje kod odbioru oraz lokalnie generowany QR,
+5. przechowuje sekrety wyłącznie w pamięci bieżącej instancji karty.
+
+Kod odbioru, telefon ani QR **nie są zapisywane w konfiguracji Lovelace**.
+
+Dla kompatybilności karta nadal rozumie stary format z Allegro Buyer 0.2.x, w którym `pickup_code` i `qr_code` były bezpośrednimi atrybutami sensora.
+
+## Pola z `details[]` używane przez kartę
 
 | Atrybut | Zastosowanie |
 |---|---|
 | `Seller` / `seller` | nazwa sprzedawcy |
 | `Status` / `status` | status zamówienia |
 | `Offers` / `offers` | lista produktów |
-| `delivery_name` | nazwa przewoźnika |
+| `delivery_name` | nazwa usługi / przewoźnika |
 | `tracing_url` / `tracking_url` | link śledzenia |
-| `pickup_code` | kod odbioru |
-| `qr_code` | payload QR |
-| pola numeru przesyłki | wykorzystywane przy scalaniu |
+| `pickup_point_id` | identyfikator punktu / automatu |
+| `pickup_point_name` | nazwa punktu odbioru |
+| `pickup_point_description` | dodatkowy opis punktu |
+| `pickup_point_address` | adres punktu odbioru |
+| `delivery_status` | status z listy „Moje przesyłki” |
+| `delivery_description` | opis stanu przesyłki |
+| `delivery_details` | dodatkowe szczegóły dostawy |
+| `pickup_deadline` | termin odbioru |
+
+## Dane pobierane z `allegro.get_pickup_code`
+
+Odpowiedź usługi zawiera m.in.:
+
+```yaml
+orders:
+  - order_id: "..."
+    seller: "example-shop"
+    offers:
+      - "Przykładowy produkt"
+    waybills:
+      - "XXXXXXXXXXXXXXXXXXXXXXXX"
+    pickup_point_name: "Paczkomat XXX00X"
+    pickup_code: "111111"
+    receiver_phone_number: "+48XXXXXXXXX"
+    qr_code: "P|+48XXXXXXXXX|111111"
+```
+
+Karta wykorzystuje:
+
+- `waybills[]` do dokładniejszego dopasowania/scalania,
+- `pickup_code` do pokazania kodu odbioru,
+- `qr_code` do lokalnego wygenerowania QR,
+- `pickup_point_name` jako dodatkowe źródło nazwy punktu.
+
+Jeżeli odpowiedź zawiera **dokładnie jeden waybill**, karta może wykorzystać go jako dodatkowy identyfikator przesyłki. Przy wielu waybillach nie zgaduje, który z nich odpowiada pojedynczej fizycznej paczce.
 
 Karta potrafi także wyciągać numer przesyłki z parametrów URL, m.in. `parcel`, `shipment`, `tracking`, `tracking-id`, `trackingId`, `shipment-id`, `shipmentId`, `piececode`, `pieceCode`, `waybill`, `numer`, `number`.
 
@@ -484,20 +551,22 @@ Jeżeli Allegro udostępnia własny `tracing_url`, karta zachowuje go jako osobn
 
 # 🔀 Allegro Delivery `AD...` a numer przewoźnika
 
-Dla przesyłek Allegro Delivery partnerem logistycznym może być DPD lub DHL, ale Allegro może pokazywać własny numer zaczynający się od `AD...`, podczas gdy integracja DPD/DHL widzi inny numer listu przewozowego.
+Allegro Delivery może używać własnego identyfikatora zaczynającego się od `AD...`, podczas gdy DPD, DHL lub InPost widzi inny numer listu przewozowego.
 
-Przykład:
+Od **HA Parcel Card 1.9.0** karta wykorzystuje również `waybills[]` zwracane przez `allegro.get_pickup_code`.
+
+Jeżeli Allegro Buyer zwróci **jeden dodatkowy waybill** i jest on identyczny z numerem widocznym w integracji przewoźnika, karta może scalić rekordy po tym numerze bez żadnej heurystyki.
+
+Przykład możliwego scalenia:
 
 ```text
-Allegro: ADXXXXXXXXXXXXXXXX
-DPD:     XXXXXXXXXXXXXU
+Allegro tracing URL: ADXXXXXXXXXXXXXXXX
+Allegro service waybill: XXXXXXXXXXXXXU
+DPD:                     XXXXXXXXXXXXXU
+                         ^ dokładna zgodność
 ```
 
-Te dwa numery nie mają wspólnej wartości, więc karta nie może ich bezpiecznie scalić wyłącznie po numerze. Aktualne sensory używane przez kartę nie przekazują jawnego mapowania `AD... -> numer DPD/DHL`.
-
-Z tego powodu automatyczne scalanie w takiej sytuacji jest celowo wyłączone. Zgadnięcie na podstawie samego nadawcy lub kolejności paczek mogłoby połączyć dwie różne przesyłki.
-
-Najlepszym rozwiązaniem będzie w przyszłości wykorzystanie dodatkowego numeru referencyjnego, jeżeli zostanie wystawiony przez integrację Allegro albo Shipment Tracking.
+Jeżeli `AD...` i wszystkie `waybills[]` nadal różnią się od numeru DPD/DHL/InPost, karta **nie zgaduje** po nadawcy, kolejności ani podobieństwie nazw. Takie rekordy pozostają osobne, żeby nie połączyć dwóch różnych przesyłek.
 
 ---
 
@@ -691,7 +760,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.8.4
+/local/community/parcel-card/parcel-card.js?v=1.9.0
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
@@ -774,7 +843,7 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 # 📄 Aktualna wersja
 
 ```text
-1.8.4
+1.9.0
 ```
 
 ---
