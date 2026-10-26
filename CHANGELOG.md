@@ -2,6 +2,14 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.9.1
+
+- Added Polish translations for Allegro Buyer delivery descriptions and details.
+- Translates messages such as `Parcel dispatched`, `Out for delivery`, `Ready for pickup`, `Delivered` and common related states.
+- Translates estimated-delivery prefixes such as `Estimated delivery to:`.
+- Localizes compact English dates such as `Tue Oct 27` to Polish (`wt. 27 października`).
+- Normalizes non-breaking spaces and common HTML-space entities returned in delivery text.
+
 ## 1.9.0
 
 - Added compatibility with Allegro Buyer 0.3.0.
