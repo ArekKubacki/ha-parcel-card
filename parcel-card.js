@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.9.0";
+  const CARD_VERSION = "1.9.1";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -2126,6 +2126,107 @@
       return STATUS_META[status]?.icon || "mdi:package-variant";
     }
 
+    _translateAllegroDeliveryText(value) {
+      if (value === null || value === undefined) return "";
+
+      let text = String(value)
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&#x20;/gi, " ")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!text) return "";
+
+      const exact = new Map([
+        ["Parcel dispatched", "Przesyłka nadana"],
+        ["Parcel shipped", "Przesyłka nadana"],
+        ["Shipment dispatched", "Przesyłka nadana"],
+        ["Shipment registered", "Przesyłka zarejestrowana"],
+        ["Parcel registered", "Przesyłka zarejestrowana"],
+        ["Parcel accepted", "Przesyłka przyjęta"],
+        ["Parcel in transit", "Przesyłka w drodze"],
+        ["In transit", "W drodze"],
+        ["Out for delivery", "W doręczeniu"],
+        ["Parcel out for delivery", "Przesyłka w doręczeniu"],
+        ["Ready for pickup", "Gotowa do odbioru"],
+        ["Available for pickup", "Gotowa do odbioru"],
+        ["Parcel ready for pickup", "Przesyłka gotowa do odbioru"],
+        ["Delivered", "Dostarczona"],
+        ["Parcel delivered", "Przesyłka dostarczona"],
+        ["Delivery attempted", "Próba doręczenia"],
+        ["Returned to sender", "Zwrócona do nadawcy"],
+        ["Parcel returned to sender", "Przesyłka zwrócona do nadawcy"]
+      ]);
+
+      if (exact.has(text)) {
+        return exact.get(text);
+      }
+
+      const replacements = [
+        [/\bParcel dispatched\b/gi, "Przesyłka nadana"],
+        [/\bParcel shipped\b/gi, "Przesyłka nadana"],
+        [/\bShipment dispatched\b/gi, "Przesyłka nadana"],
+        [/\bShipment registered\b/gi, "Przesyłka zarejestrowana"],
+        [/\bParcel registered\b/gi, "Przesyłka zarejestrowana"],
+        [/\bParcel accepted\b/gi, "Przesyłka przyjęta"],
+        [/\bParcel in transit\b/gi, "Przesyłka w drodze"],
+        [/\bOut for delivery\b/gi, "W doręczeniu"],
+        [/\bReady for pickup\b/gi, "Gotowa do odbioru"],
+        [/\bAvailable for pickup\b/gi, "Gotowa do odbioru"],
+        [/\bParcel delivered\b/gi, "Przesyłka dostarczona"],
+        [/\bDelivery attempted\b/gi, "Próba doręczenia"],
+        [/\bReturned to sender\b/gi, "Zwrócona do nadawcy"],
+        [/\bEstimated delivery to:\s*/gi, "Przewidywane doręczenie: "],
+        [/\bEstimated delivery:\s*/gi, "Przewidywane doręczenie: "],
+        [/\bExpected delivery:\s*/gi, "Przewidywane doręczenie: "],
+        [/\bDelivery expected by:\s*/gi, "Przewidywane doręczenie: "]
+      ];
+
+      for (const [pattern, replacement] of replacements) {
+        text = text.replace(pattern, replacement);
+      }
+
+      const weekdays = {
+        Mon: "pon.",
+        Tue: "wt.",
+        Wed: "śr.",
+        Thu: "czw.",
+        Fri: "pt.",
+        Sat: "sob.",
+        Sun: "niedz."
+      };
+
+      const months = {
+        Jan: "stycznia",
+        Feb: "lutego",
+        Mar: "marca",
+        Apr: "kwietnia",
+        May: "maja",
+        Jun: "czerwca",
+        Jul: "lipca",
+        Aug: "sierpnia",
+        Sep: "września",
+        Oct: "października",
+        Nov: "listopada",
+        Dec: "grudnia"
+      };
+
+      text = text.replace(
+        /\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:,?\s+(\d{4}))?\b/g,
+        (_, weekday, month, day, year) =>
+          `${weekdays[weekday]} ${Number(day)} ${months[month]}${year ? ` ${year}` : ""}`
+      );
+
+      text = text.replace(
+        /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})(?:,?\s+(\d{4}))?\b/g,
+        (_, month, day, year) =>
+          `${Number(day)} ${months[month]}${year ? ` ${year}` : ""}`
+      );
+
+      return text;
+    }
+
     _tilePriority(items) {
       const statuses = new Set(items.map((x) => x.status));
 
@@ -2687,17 +2788,24 @@
           ? `<div class="inpost-raw-status">${this._e(this._carrierForPackage(pkg))}: ${this._e(pkg.externalStatus)}</div>`
           : "";
 
+      const translatedDeliveryDescription =
+        this._translateAllegroDeliveryText(pkg.deliveryDescription);
+      const translatedDeliveryDetails =
+        this._translateAllegroDeliveryText(pkg.deliveryDetails);
+
       const allegroDeliveryLine =
-        pkg.deliveryDescription || pkg.deliveryDetails
+        translatedDeliveryDescription || translatedDeliveryDetails
           ? `
             <div class="allegro-delivery-line">
               <ha-icon icon="mdi:package-variant-closed"></ha-icon>
               <span>
-                ${pkg.deliveryDescription
-                  ? `<b>${this._e(pkg.deliveryDescription)}</b>`
+                ${translatedDeliveryDescription
+                  ? `<b>${this._e(translatedDeliveryDescription)}</b>`
                   : ""}
-                ${pkg.deliveryDescription && pkg.deliveryDetails ? " · " : ""}
-                ${pkg.deliveryDetails ? this._e(pkg.deliveryDetails) : ""}
+                ${translatedDeliveryDescription && translatedDeliveryDetails ? " · " : ""}
+                ${translatedDeliveryDetails
+                  ? this._e(translatedDeliveryDetails)
+                  : ""}
               </span>
             </div>
           `
