@@ -149,7 +149,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.0
+/local/community/parcel-card/parcel-card.js?v=1.9.1
 ```
 
 ---
@@ -482,6 +482,24 @@ Kod odbioru, telefon ani QR **nie są zapisywane w konfiguracji Lovelace**.
 
 Dla kompatybilności karta nadal rozumie stary format z Allegro Buyer 0.2.x, w którym `pickup_code` i `qr_code` były bezpośrednimi atrybutami sensora.
 
+## Tłumaczenie komunikatów dostawy
+
+Allegro Buyer może zwracać `delivery_description` i `delivery_details` po angielsku. Karta tłumaczy typowe komunikaty na polski.
+
+Przykład:
+
+```text
+Parcel dispatched · Estimated delivery to: Tue Oct 27
+```
+
+jest wyświetlany jako:
+
+```text
+Przesyłka nadana · Przewidywane doręczenie: wt. 27 października
+```
+
+Obsługiwane są również m.in. komunikaty dotyczące transportu, doręczenia, gotowości do odbioru, próby doręczenia i zwrotu do nadawcy. Nieznany tekst pozostaje bez zmian zamiast być błędnie tłumaczony.
+
 ## Pola z `details[]` używane przez kartę
 
 | Atrybut | Zastosowanie |
@@ -760,7 +778,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.0
+/local/community/parcel-card/parcel-card.js?v=1.9.1
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
@@ -843,7 +861,7 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 # 📄 Aktualna wersja
 
 ```text
-1.9.0
+1.9.1
 ```
 
 ---
