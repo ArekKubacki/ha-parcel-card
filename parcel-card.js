@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.9.1";
+  const CARD_VERSION = "1.9.2";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -1680,7 +1680,11 @@
           ],
           personName: inpost.personName,
           accountName: inpost.accountName,
-          status: inpost.status || allegro.status,
+          status:
+            this._statusMergePriority(allegro.status) >
+            this._statusMergePriority(inpost.status)
+              ? allegro.status
+              : inpost.status,
           trackingNumber:
             inpost.trackingNumber || allegro.trackingNumber || "",
           allegroTrackingNumber:
@@ -1815,7 +1819,20 @@
           a.carrierTrackingNumber || b.carrierTrackingNumber || "",
         trackingUrl: a.trackingUrl || b.trackingUrl || "",
         pickupCode: a.pickupCode || b.pickupCode || null,
+        receiverPhoneNumber:
+          a.receiverPhoneNumber || b.receiverPhoneNumber || null,
         qrCode: a.qrCode || b.qrCode || null,
+        deliveryDescription:
+          a.deliveryDescription || b.deliveryDescription || "",
+        deliveryDetails:
+          a.deliveryDetails || b.deliveryDetails || "",
+        pickupPointDescription:
+          a.pickupPointDescription || b.pickupPointDescription || "",
+        isDefaultPickupPoint:
+          a.isDefaultPickupPoint !== null &&
+          a.isDefaultPickupPoint !== undefined
+            ? a.isDefaultPickupPoint
+            : b.isDefaultPickupPoint ?? null,
         locker: a.locker || b.locker || "",
         address: a.address || b.address || "",
         deadline: a.deadline || b.deadline || "",
@@ -2491,18 +2508,40 @@
         `
         : "";
 
-      // Nie każdy przewoźnik zwraca osobne pole `qr_code`.
-      // Allegro One / One Kurier często podaje tylko `pickup_code`,
-      // więc jako fallback używamy kodu odbioru bez spacji.
+      const pickupCodeCompact = pkg.pickupCode
+        ? String(pkg.pickupCode).replace(/\s+/g, "")
+        : "";
+      const receiverPhoneCompact = pkg.receiverPhoneNumber
+        ? String(pkg.receiverPhoneNumber).replace(/\s+/g, "")
+        : "";
+      const packageCarrier = this._carrierForPackage(pkg);
+
+      // Allegro Buyer 0.3.0 może zwrócić kod odbioru i telefon bez qr_code.
+      // Dla InPost poprawny payload QR ma postać P|telefon|kod.
+      const inpostQrFallback =
+        packageCarrier === "InPost" &&
+        pickupCodeCompact &&
+        receiverPhoneCompact
+          ? `P|${receiverPhoneCompact}|${pickupCodeCompact}`
+          : "";
+
+      // Allegro One / One Kurier potrafią udostępnić wyłącznie kod odbioru.
+      // Dla InPost nie generujemy QR z samego kodu — potrzebny jest telefon.
+      const simpleCodeFallback =
+        packageCarrier !== "InPost" && pickupCodeCompact
+          ? pickupCodeCompact
+          : "";
+
       const qrPayload =
         pkg.qrCode ||
-        (pkg.pickupCode
-          ? String(pkg.pickupCode).replace(/\s+/g, "")
-          : "");
+        inpostQrFallback ||
+        simpleCodeFallback;
 
+      // Nie uzależniamy QR od znormalizowanego statusu paczki. Po scaleniu
+      // źródła mogą chwilowo różnić się statusem, a sam obecny kod/QR jest
+      // wystarczającym sygnałem, że można pokazać dane odbioru.
       const qrSvg =
         this._config.show_pickup_qr &&
-        pkg.status === "AVAILABLE_FOR_PICKUP" &&
         qrPayload
           ? makePickupQrSvg(qrPayload)
           : "";
