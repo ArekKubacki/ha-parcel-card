@@ -2,6 +2,15 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.9.2
+
+- Fixed missing pickup QR after Allegro + InPost merge.
+- QR rendering is no longer blocked by a temporarily stale merged parcel status.
+- When Allegro Buyer 0.3.0 returns pickup code + receiver phone but no QR payload, InPost QR is reconstructed as `P|phone|code`.
+- InPost QR is never generated from the pickup code alone.
+- Merged InPost + Allegro parcels now use the higher-priority status, so `AVAILABLE_FOR_PICKUP` wins over stale `IN_TRANSIT`.
+- Preserved Allegro pickup metadata through generic carrier merges.
+
 ## 1.9.1
 
 - Added Polish translations for Allegro Buyer delivery descriptions and details.
