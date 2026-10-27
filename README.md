@@ -149,7 +149,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.1
+/local/community/parcel-card/parcel-card.js?v=1.9.2
 ```
 
 ---
@@ -518,6 +518,25 @@ Obsługiwane są również m.in. komunikaty dotyczące transportu, doręczenia, 
 | `delivery_details` | dodatkowe szczegóły dostawy |
 | `pickup_deadline` | termin odbioru |
 
+### QR po Allegro Buyer 0.3.0
+
+Jeżeli usługa Allegro zwróci gotowe `qr_code`, karta używa go bez zmian.
+
+Jeżeli dla przesyłki **InPost** dostępne są tylko:
+
+- `pickup_code`,
+- `receiver_phone_number`,
+
+karta odtwarza poprawny payload InPost:
+
+```text
+P|+48XXXXXXXXX|111111
+```
+
+i generuje QR lokalnie w przeglądarce.
+
+QR nie jest już ukrywany tylko dlatego, że po scaleniu jedna integracja nadal zgłasza `IN_TRANSIT`, podczas gdy Allegro ma już `AVAILABLE_FOR_PICKUP`.
+
 ## Dane pobierane z `allegro.get_pickup_code`
 
 Odpowiedź usługi zawiera m.in.:
@@ -778,7 +797,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.1
+/local/community/parcel-card/parcel-card.js?v=1.9.2
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
@@ -861,7 +880,7 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 # 📄 Aktualna wersja
 
 ```text
-1.9.1
+1.9.2
 ```
 
 ---
