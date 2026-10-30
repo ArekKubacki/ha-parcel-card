@@ -2,6 +2,13 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.9.3
+
+- Added Polish translations for Allegro One / One Kurier delivery messages.
+- Translates messages such as `Your parcel is on its way to point`, `Your parcel is ready for pickup`, `Your parcel has arrived at point` and related variants.
+- Canonical raw statuses such as `IN_TRANSIT` and `AVAILABLE_FOR_PICKUP` are now displayed using the card's Polish status labels.
+- Unknown delivery messages still remain unchanged instead of being guessed.
+
 ## 1.9.2
 
 - Fixed missing pickup QR after Allegro + InPost merge.
