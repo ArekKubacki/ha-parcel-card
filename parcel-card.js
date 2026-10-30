@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.9.2";
+  const CARD_VERSION = "1.9.3";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -2173,7 +2173,15 @@
         ["Parcel delivered", "Przesyłka dostarczona"],
         ["Delivery attempted", "Próba doręczenia"],
         ["Returned to sender", "Zwrócona do nadawcy"],
-        ["Parcel returned to sender", "Przesyłka zwrócona do nadawcy"]
+        ["Parcel returned to sender", "Przesyłka zwrócona do nadawcy"],
+        ["Your parcel is on its way to point", "Twoja przesyłka jest w drodze do punktu"],
+        ["Your parcel is on its way", "Twoja przesyłka jest w drodze"],
+        ["Your parcel is on its way to you", "Twoja przesyłka jest w drodze do Ciebie"],
+        ["Your parcel has arrived at point", "Twoja przesyłka dotarła do punktu"],
+        ["Your parcel is ready for pickup", "Twoja przesyłka jest gotowa do odbioru"],
+        ["Your parcel is waiting for pickup", "Twoja przesyłka czeka na odbiór"],
+        ["Your parcel has been delivered", "Twoja przesyłka została doręczona"],
+        ["We are delivering your parcel", "Doręczamy Twoją przesyłkę"]
       ]);
 
       if (exact.has(text)) {
@@ -2194,6 +2202,14 @@
         [/\bParcel delivered\b/gi, "Przesyłka dostarczona"],
         [/\bDelivery attempted\b/gi, "Próba doręczenia"],
         [/\bReturned to sender\b/gi, "Zwrócona do nadawcy"],
+        [/\bYour parcel is on its way to point\b/gi, "Twoja przesyłka jest w drodze do punktu"],
+        [/\bYour parcel is on its way to you\b/gi, "Twoja przesyłka jest w drodze do Ciebie"],
+        [/\bYour parcel is on its way\b/gi, "Twoja przesyłka jest w drodze"],
+        [/\bYour parcel has arrived at point\b/gi, "Twoja przesyłka dotarła do punktu"],
+        [/\bYour parcel is ready for pickup\b/gi, "Twoja przesyłka jest gotowa do odbioru"],
+        [/\bYour parcel is waiting for pickup\b/gi, "Twoja przesyłka czeka na odbiór"],
+        [/\bYour parcel has been delivered\b/gi, "Twoja przesyłka została doręczona"],
+        [/\bWe are delivering your parcel\b/gi, "Doręczamy Twoją przesyłkę"],
         [/\bEstimated delivery to:\s*/gi, "Przewidywane doręczenie: "],
         [/\bEstimated delivery:\s*/gi, "Przewidywane doręczenie: "],
         [/\bExpected delivery:\s*/gi, "Przewidywane doręczenie: "],
@@ -2242,6 +2258,21 @@
       );
 
       return text;
+    }
+
+    _externalStatusLabel(value) {
+      if (value === null || value === undefined) return "";
+
+      const normalized = String(value)
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+
+      if (STATUS_META[normalized]) {
+        return this._statusLabel(normalized);
+      }
+
+      return this._translateAllegroDeliveryText(value);
     }
 
     _tilePriority(items) {
@@ -2824,7 +2855,7 @@
 
       const externalRawStatus =
         pkg.externalStatus
-          ? `<div class="inpost-raw-status">${this._e(this._carrierForPackage(pkg))}: ${this._e(pkg.externalStatus)}</div>`
+          ? `<div class="inpost-raw-status">${this._e(this._carrierForPackage(pkg))}: ${this._e(this._externalStatusLabel(pkg.externalStatus))}</div>`
           : "";
 
       const translatedDeliveryDescription =
