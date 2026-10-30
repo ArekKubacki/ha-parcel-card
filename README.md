@@ -149,7 +149,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.2
+/local/community/parcel-card/parcel-card.js?v=1.9.3
 ```
 
 ---
@@ -484,6 +484,30 @@ Dla kompatybilności karta nadal rozumie stary format z Allegro Buyer 0.2.x, w k
 
 ## Tłumaczenie komunikatów dostawy
 
+Dla Allegro One / One Kurier obsługiwane są również komunikaty takie jak:
+
+```text
+Your parcel is on its way to point
+Your parcel has arrived at point
+Your parcel is ready for pickup
+Your parcel is waiting for pickup
+Your parcel has been delivered
+```
+
+Przykład:
+
+```text
+Your parcel is on its way to point
+```
+
+jest wyświetlany jako:
+
+```text
+Twoja przesyłka jest w drodze do punktu
+```
+
+Surowe statusy techniczne, np. `IN_TRANSIT`, są również tłumaczone na etykiety karty, np. `W drodze`.
+
 Allegro Buyer może zwracać `delivery_description` i `delivery_details` po angielsku. Karta tłumaczy typowe komunikaty na polski.
 
 Przykład:
@@ -797,7 +821,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.2
+/local/community/parcel-card/parcel-card.js?v=1.9.3
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
@@ -880,7 +904,7 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 # 📄 Aktualna wersja
 
 ```text
-1.9.2
+1.9.3
 ```
 
 ---
