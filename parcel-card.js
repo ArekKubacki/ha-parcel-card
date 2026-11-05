@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.9.3";
+  const CARD_VERSION = "1.10.0";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -64,6 +64,7 @@
 
   const DEFAULTS = {
     inpost_people: DEFAULT_PEOPLE,
+    orlen_people: [],
     dpd_people: [],
     dhl_people: [],
     allegro_progress_entity: "",
@@ -138,11 +139,22 @@
     }));
   }
 
+  function normalizeOrlenPeople(items) {
+    if (!Array.isArray(items)) return [];
+
+    return items.map((p, index) => ({
+      name: String(p?.name || `Osoba ${index + 1}`),
+      source_entity: String(p?.source_entity || ""),
+      ready_entity: String(p?.ready_entity || "")
+    }));
+  }
+
   function normalizeConfig(config = {}) {
     const merged = {
       ...DEFAULTS,
       ...config,
       inpost_people: normalizePeople(config),
+      orlen_people: normalizeOrlenPeople(config.orlen_people),
       dpd_people: normalizeSourcePeople(config.dpd_people),
       dhl_people: normalizeSourcePeople(config.dhl_people),
       columns: Math.min(6, Math.max(1, asNumber(config.columns ?? DEFAULTS.columns, 3)))
@@ -639,6 +651,7 @@
       return {
         type: "custom:parcel-card",
         inpost_people: deepClone(DEFAULT_PEOPLE),
+        orlen_people: [],
         allegro_progress_entity: DEFAULTS.allegro_progress_entity,
         columns: 3
       };
@@ -704,6 +717,25 @@
           };
         });
 
+      const orlenPeople = this._config.orlen_people.map((p) => {
+        const sourceState = p.source_entity
+          ? this._hass.states?.[p.source_entity]
+          : null;
+        const readyState = p.ready_entity
+          ? this._hass.states?.[p.ready_entity]
+          : null;
+
+        return {
+          name: p.name,
+          source_entity: p.source_entity,
+          source_state: sourceState?.state ?? "",
+          source_attrs: sourceState?.attributes ?? {},
+          ready_entity: p.ready_entity,
+          ready_state: readyState?.state ?? "",
+          ready_attrs: readyState?.attributes ?? {}
+        };
+      });
+
       const dpdPeople = sourceAccounts(this._config.dpd_people);
       const dhlPeople = sourceAccounts(this._config.dhl_people);
 
@@ -715,6 +747,7 @@
 
       return JSON.stringify({
         people,
+        orlenPeople,
         dpdPeople,
         dhlPeople,
         mail,
@@ -1386,6 +1419,8 @@
       if (
         s.includes("przygotowaniu") ||
         s.includes("utworzona") ||
+        s.includes("zaawizowana") ||
+        s.includes("zarejestrowana") ||
         s.includes("czeka na odbiór kuriera") ||
         s.includes("czeka na odbior kuriera") ||
         s.includes("created")
@@ -1397,6 +1432,8 @@
         s.includes("dostarczona") ||
         s === "doręczona" ||
         s === "doreczona" ||
+        s === "odebrana" ||
+        s.includes("odebrana przez klienta") ||
         s.includes("odebrana z punktu") ||
         s.includes("odebrana z automatu")
       ) {
@@ -1406,6 +1443,9 @@
       if (
         s.includes("zwrócona") ||
         s.includes("zwrocona") ||
+        s.includes("zwrot") ||
+        s.includes("powrót") ||
+        s.includes("powrot") ||
         s.includes("wraca do nadawcy") ||
         s.includes("wróciła do nadawcy") ||
         s.includes("wrocila do nadawcy")
@@ -1428,6 +1468,12 @@
         s.includes("opoznienie") ||
         s.includes("zaginęła") ||
         s.includes("zaginela") ||
+        s.includes("weryfikacji") ||
+        s.includes("zatrzymana") ||
+        s.includes("reklamacja") ||
+        s.includes("zniszczona") ||
+        s.includes("zagubiona") ||
+        s.includes("likwidacja") ||
         s.includes("odmowa") ||
         s.includes("oczekujemy na decyzje nadawcy") ||
         s.includes("oczekujemy na decyzję nadawcy") ||
@@ -1464,6 +1510,9 @@
         carrierTrackingNumber: this._extractTrackingNumber(raw),
         pickupCode: null,
         qrCode: null,
+        locker: raw?.punkt || raw?.paczkomat || "",
+        address: raw?.adres || "",
+        deadline: raw?.termin_odbioru || "",
         updated: raw?.aktualizacja || "",
         senderAddress: raw?.adres_nadawcy || "",
         deliveryGps: raw?.gps_doreczenia || null,
@@ -1526,6 +1575,119 @@
             updated: "",
             raw: {}
           });
+        }
+      }
+
+      return packages;
+    }
+
+    _orlenPackages() {
+      const packages = [];
+
+      for (const account of this._config.orlen_people) {
+        if (account?.source_entity) {
+          const state = this._hass?.states?.[account.source_entity];
+          const attrs = state?.attributes || {};
+          const active = Array.isArray(attrs.w_drodze)
+            ? attrs.w_drodze
+            : [];
+
+          for (const item of active) {
+            const pkg = this._normalizeExternalCarrierPackage(
+              item,
+              account,
+              "ORLEN"
+            );
+            pkg.deliveryName = "ORLEN Paczka";
+            packages.push(pkg);
+          }
+
+          const expected = Math.max(
+            0,
+            asNumber(attrs.active_count, state?.state)
+          );
+
+          for (let i = active.length; i < expected; i++) {
+            packages.push({
+              source: "orlen",
+              sources: ["ORLEN"],
+              assignments: account?.name
+                ? [{ source: "ORLEN", name: account.name }]
+                : [],
+              accountName: account?.name || "",
+              seller: "ORLEN Paczka",
+              status: "IN_TRANSIT",
+              externalStatus: "",
+              offers: [],
+              deliveryName: "ORLEN Paczka",
+              trackingUrl: "",
+              trackingNumber: "",
+              allegroTrackingNumber: "",
+              carrierTrackingNumber: "",
+              pickupCode: null,
+              qrCode: null,
+              locker: "",
+              address: "",
+              deadline: "",
+              updated: "",
+              raw: {}
+            });
+          }
+        }
+
+        if (account?.ready_entity) {
+          const readyState = this._hass?.states?.[account.ready_entity];
+          const readyAttrs = readyState?.attributes || {};
+          const ready = Array.isArray(readyAttrs.do_odbioru)
+            ? readyAttrs.do_odbioru
+            : [];
+
+          for (const item of ready) {
+            const normalizedItem = {
+              ...item,
+              status: item?.status || "Gotowa do odbioru"
+            };
+            const pkg = this._normalizeExternalCarrierPackage(
+              normalizedItem,
+              account,
+              "ORLEN"
+            );
+            pkg.status = "AVAILABLE_FOR_PICKUP";
+            pkg.deliveryName = "ORLEN Paczka";
+            packages.push(pkg);
+          }
+
+          const expectedReady = Math.max(
+            0,
+            asNumber(readyAttrs.ready_count, readyState?.state)
+          );
+
+          for (let i = ready.length; i < expectedReady; i++) {
+            packages.push({
+              source: "orlen",
+              sources: ["ORLEN"],
+              assignments: account?.name
+                ? [{ source: "ORLEN", name: account.name }]
+                : [],
+              accountName: account?.name || "",
+              seller: "ORLEN Paczka",
+              status: "AVAILABLE_FOR_PICKUP",
+              externalStatus: "Gotowa do odbioru",
+              offers: [],
+              deliveryName: "ORLEN Paczka",
+              trackingUrl: "",
+              trackingNumber: "",
+              allegroTrackingNumber: "",
+              carrierTrackingNumber: "",
+              pickupCode: null,
+              qrCode: null,
+              locker: "",
+              address: "",
+              deadline: "",
+              updated: "",
+              raw: {}
+            });
+          }
         }
       }
 
@@ -1976,6 +2138,7 @@
       }
 
       if (Array.isArray(pkg?.sources)) {
+        if (pkg.sources.includes("ORLEN")) return "ORLEN";
         if (pkg.sources.includes("DPD")) return "DPD";
         if (pkg.sources.includes("DHL")) return "DHL";
       }
@@ -2959,6 +3122,7 @@
 
       const rawAllegroPackages = this._packages();
       const rawInpostPackages = this._allInpostPackages();
+      const rawOrlenPackages = this._orlenPackages();
       const rawDpdPackages = this._dpdPackages();
       const rawDhlPackages = this._dhlPackages();
 
@@ -2974,6 +3138,10 @@
 
       // Nagłówki źródeł są liczone niezależnie od późniejszego scalania.
       const inpostGroups = this._inpostGroups(inpostPackages);
+      const orlenGroups = this._accountGroups(
+        rawOrlenPackages,
+        this._config.orlen_people
+      );
       const dpdGroups = this._accountGroups(
         rawDpdPackages,
         this._config.dpd_people
@@ -2992,6 +3160,7 @@
       const displayPackages = this._mergeByTracking([
         ...inpostPackages,
         ...allegroPackages,
+        ...rawOrlenPackages,
         ...rawDpdPackages,
         ...rawDhlPackages
       ]).filter((pkg) => this._isStatusVisible(pkg.status));
@@ -3465,6 +3634,7 @@
             <div class="summary">
               ${this._renderMailRow(mailCount)}
               ${this._renderInpostHeader(inpostGroups)}
+              ${this._renderAccountHeader("ORLEN Paczka", orlenGroups, "📦")}
               ${this._renderAccountHeader("DPD", dpdGroups, "🚚")}
               ${this._renderAccountHeader("DHL", dhlGroups, "🚚")}
               ${this._renderAllegroRow(allegroActive)}
@@ -3578,6 +3748,7 @@
       const clean = {
         type: "custom:parcel-card",
         inpost_people: deepClone(this._config.inpost_people),
+        orlen_people: deepClone(this._config.orlen_people),
         dpd_people: deepClone(this._config.dpd_people),
         dhl_people: deepClone(this._config.dhl_people),
         allegro_progress_entity: this._config.allegro_progress_entity,
@@ -3769,6 +3940,7 @@
       // Jeżeli zmieniła się liczba osób albo zestaw statusów widocznych
       // w edytorze, potrzebny jest jednorazowy pełny render.
       const personCards = this.shadowRoot.querySelectorAll(".inpost-person-card");
+      const orlenPersonCards = this.shadowRoot.querySelectorAll(".orlen-person-card");
       const dpdPersonCards = this.shadowRoot.querySelectorAll(".dpd-person-card");
       const dhlPersonCards = this.shadowRoot.querySelectorAll(".dhl-person-card");
       const expectedStatuses = this._knownAndDiscoveredStatuses();
@@ -3787,6 +3959,7 @@
 
       if (
         personCards.length !== this._config.inpost_people.length ||
+        orlenPersonCards.length !== this._config.orlen_people.length ||
         dpdPersonCards.length !== this._config.dpd_people.length ||
         dhlPersonCards.length !== this._config.dhl_people.length ||
         mailPickers.length !== this._config.mail_entities.length ||
@@ -3822,7 +3995,7 @@
         }
       });
 
-      for (const kind of ["dpd", "dhl"]) {
+      for (const kind of ["orlen", "dpd", "dhl"]) {
         const people = this._config[`${kind}_people`] || [];
 
         people.forEach((person, index) => {
@@ -3840,6 +4013,16 @@
           if (source) {
             source.hass = this._hass;
             source.value = person.source_entity || "";
+          }
+
+          if (kind === "orlen") {
+            const ready = this.shadowRoot.querySelector(
+              `[data-orlen-person-ready="${index}"]`
+            );
+            if (ready) {
+              ready.hass = this._hass;
+              ready.value = person.ready_entity || "";
+            }
           }
         });
       }
@@ -3926,6 +4109,56 @@
             <code>do_odbioru</code> i <code>w_drodze</code>.
             W tej integracji jest to zwykle encja kończąca się
             na <code>_do_odbioru</code>.
+          </div>
+        </div>
+      `;
+    }
+
+    _orlenPersonHtml(person, index) {
+      return `
+        <div class="person-card orlen-person-card">
+          <div class="person-head">
+            <b>Osoba ${index + 1}</b>
+            <button
+              class="icon-btn danger"
+              data-remove-orlen-person="${index}"
+              type="button"
+              title="Usuń"
+            >
+              <ha-icon icon="mdi:delete-outline"></ha-icon>
+            </button>
+          </div>
+
+          <div class="field">
+            <div class="field-label">Nazwa</div>
+            <input
+              type="text"
+              data-orlen-person-name="${index}"
+              value="${this._e(person.name)}"
+              placeholder="np. Osoba 1"
+            >
+          </div>
+
+          <div class="field">
+            <div class="field-label">ORLEN Paczka — W drodze</div>
+            <ha-entity-picker
+              data-orlen-person-source="${index}"
+            ></ha-entity-picker>
+          </div>
+
+          <div class="field">
+            <div class="field-label">ORLEN Paczka — Do odbioru (opcjonalnie)</div>
+            <ha-entity-picker
+              data-orlen-person-ready="${index}"
+            ></ha-entity-picker>
+          </div>
+
+          <div class="help person-help">
+            Dla integracji <b>ORLEN Paczka (konto)</b> wybierz obie encje.
+            Pierwsza powinna zawierać <code>w_drodze[]</code> i
+            <code>active_count</code>, a druga <code>do_odbioru[]</code>.
+            Przy prostym śledzeniu po numerach wystarczy sama encja
+            „W drodze”.
           </div>
         </div>
       `;
@@ -4251,6 +4484,30 @@
 
           <section class="section">
             <div class="section-title-row">
+              <div class="section-title">ORLEN Paczka – osoby</div>
+              <button class="button" id="add-orlen-person" type="button">
+                + Dodaj osobę
+              </button>
+            </div>
+
+            <div class="help">
+              Obsługa zarówno ORLEN Paczka (konto), jak i prostego śledzenia
+              przesyłek po numerze z integracji Shipment Tracking.
+            </div>
+
+            <div class="person-list">
+              ${
+                this._config.orlen_people.length
+                  ? this._config.orlen_people
+                      .map((p, i) => this._orlenPersonHtml(p, i))
+                      .join("")
+                  : `<div class="help">Nie dodano kont ORLEN Paczka.</div>`
+              }
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-title-row">
               <div class="section-title">DPD – osoby</div>
               <button class="button" id="add-dpd-person" type="button">
                 + Dodaj osobę
@@ -4510,7 +4767,7 @@
         this._addPerson();
       });
 
-      for (const kind of ["dpd", "dhl"]) {
+      for (const kind of ["orlen", "dpd", "dhl"]) {
         const people = this._config[`${kind}_people`] || [];
 
         people.forEach((person, index) => {
@@ -4532,6 +4789,28 @@
                 event.detail?.value || ""
               );
             });
+          }
+
+          if (kind === "orlen") {
+            const ready = this.shadowRoot.querySelector(
+              `[data-orlen-person-ready="${index}"]`
+            );
+
+            if (ready) {
+              ready.hass = this._hass;
+              ready.value = person.ready_entity || "";
+              ready.includeDomains = ["sensor"];
+              ready.allowCustomEntity = true;
+
+              ready.addEventListener("value-changed", (event) => {
+                this._updateSourcePerson(
+                  "orlen",
+                  index,
+                  "ready_entity",
+                  event.detail?.value || ""
+                );
+              });
+            }
           }
         });
 
@@ -4658,9 +4937,9 @@
   if (!window.customCards.some((card) => card.type === "parcel-card")) {
     window.customCards.push({
       type: "parcel-card",
-      name: "Paczki – InPost + DPD + DHL + Allegro",
+      name: "Paczki – InPost + ORLEN + DPD + DHL + Allegro",
       description:
-        "Zwięzła karta przesyłek InPost, DPD, DHL i Allegro z automatycznym scalaniem.",
+        "Zwięzła karta przesyłek InPost, ORLEN Paczka, DPD, DHL i Allegro z automatycznym scalaniem.",
       preview: true,
       documentationURL: ""
     });
