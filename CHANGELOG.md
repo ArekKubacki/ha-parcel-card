@@ -2,6 +2,16 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.10.0
+
+- Added ORLEN Paczka support to HA Parcel Card.
+- Added a dedicated ORLEN Paczka section to the graphical editor.
+- Supports the auto-discovery **ORLEN Paczka (konto)** variant with separate `W drodze` and optional `Do odbioru` sensor entities.
+- Also supports the simpler track-by-number ORLEN source using only the `W drodze` entity.
+- Reads ORLEN `w_drodze[]`, `do_odbioru[]`, `active_count`, sender and pickup-point fields.
+- Maps ORLEN pickup, transit, delivery, return and problem states to the card's canonical statuses.
+- ORLEN parcels participate in the unified carrier tiles and exact tracking-number merging with Allegro when identifiers match.
+
 ## 1.9.3
 
 - Added Polish translations for Allegro One / One Kurier delivery messages.
