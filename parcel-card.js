@@ -3819,7 +3819,8 @@
 
       people.push({
         name: `Osoba ${people.length + 1}`,
-        source_entity: ""
+        source_entity: "",
+        ...(kind === "orlen" ? { ready_entity: "" } : {})
       });
 
       this._config = { ...this._config, [configKey]: people };
