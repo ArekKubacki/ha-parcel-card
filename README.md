@@ -149,7 +149,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.3
+/local/community/parcel-card/parcel-card.js?v=1.10.0
 ```
 
 ---
@@ -164,6 +164,11 @@ inpost_people:
     source_entity: sensor.inpost_inpost_xxx_do_odbioru
   - name: yyy
     source_entity: sensor.inpost_inpost_yyy_do_odbioru
+
+orlen_people:
+  - name: xxx
+    source_entity: sensor.orlen_paczka_xxx_w_drodze
+    ready_entity: sensor.orlen_paczka_xxx_do_odbioru
 
 dpd_people:
   - name: xxx
@@ -199,6 +204,7 @@ Nazwy encji są tylko przykładowe. Użyj encji ze swojej instancji Home Assista
 |---|---|---|---|
 | `type` | string | wymagane | Musi być `custom:parcel-card` |
 | `inpost_people` | lista | przykładowe konta | Lista osób / kont InPost |
+| `orlen_people` | lista | `[]` | Lista osób / kont ORLEN Paczka |
 | `dpd_people` | lista | `[]` | Lista osób / kont DPD |
 | `dhl_people` | lista | `[]` | Lista osób / kont DHL |
 | `allegro_progress_entity` | entity_id | przykład | Sensor Allegro `in_progress` |
@@ -214,7 +220,7 @@ Nazwy encji są tylko przykładowe. Użyj encji ze swojej instancji Home Assista
 
 ## Konfiguracja osoby / konta
 
-Dla InPost, DPD i DHL format jest taki sam:
+Dla InPost, DPD i DHL format bazuje na nazwie konta i encji źródłowej. ORLEN Paczka może dodatkowo używać opcjonalnej encji `ready_entity` dla przesyłek do odbioru:
 
 ```yaml
 - name: xxx
@@ -347,6 +353,50 @@ Wyłączenie QR:
 ```yaml
 show_pickup_qr: false
 ```
+
+---
+
+# 🟧 ORLEN Paczka — format danych
+
+Karta obsługuje dwa warianty źródła z integracji Shipment Tracking:
+
+1. **ORLEN Paczka (konto)** — automatycznie wykrywane przesyłki po zalogowaniu konta. W tym wariancie warto wskazać dwie encje:
+   - **W drodze** — zawiera `w_drodze[]` oraz `active_count`,
+   - **Do odbioru** — zawiera `do_odbioru[]`.
+2. **ORLEN Paczka po numerze** — prostsze śledzenie skonfigurowanych numerów; wystarczy encja **W drodze**.
+
+Przykład konfiguracji:
+
+```yaml
+orlen_people:
+  - name: xxx
+    source_entity: sensor.orlen_paczka_xxx_w_drodze
+    ready_entity: sensor.orlen_paczka_xxx_do_odbioru
+```
+
+Pole `ready_entity` jest opcjonalne.
+
+Przykładowe dane konta:
+
+```yaml
+active_count: 1
+ready_count: 1
+w_drodze:
+  - numer: "XXXXXXXXXXXX"
+    status: "W transporcie"
+    nadawca: "Przykładowy nadawca"
+    punkt: "Przykładowy punkt"
+
+do_odbioru:
+  - numer: "YYYYYYYYYYYY"
+    status: "Gotowa do odbioru"
+    nadawca: "Przykładowy nadawca"
+    punkt: "Przykładowy punkt"
+```
+
+Karta wykorzystuje numer przesyłki, status, nadawcę i punkt odbioru. Statusy ORLEN są mapowane na wspólne stany karty, m.in. **W drodze**, **W dostawie**, **Do odbioru**, **Zwrot** i **Problem**.
+
+Jeżeli numer z ORLEN jest identyczny z numerem dostępnym w Allegro, rekordy mogą zostać scalone po dokładnej zgodności numeru przesyłki.
 
 ---
 
@@ -821,7 +871,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.9.3
+/local/community/parcel-card/parcel-card.js?v=1.10.0
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
@@ -904,7 +954,7 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 # 📄 Aktualna wersja
 
 ```text
-1.9.3
+1.10.0
 ```
 
 ---
