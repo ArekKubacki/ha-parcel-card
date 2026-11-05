@@ -1,0 +1,47 @@
+name: Create v1.10.0 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.10.0.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate JavaScript syntax
+        run: node --check parcel-card.js
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.10.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.10.0 already exists."
+            exit 0
+          fi
+
+          gh release create v1.10.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.10.0" \
+            --notes "HA Parcel Card v1.10.0
+
+          - Added ORLEN Paczka support.
+          - Added graphical-editor configuration for ORLEN accounts.
+          - Supports ORLEN Paczka (konto) with W drodze + optional Do odbioru entities.
+          - Supports simple track-by-number ORLEN sources with W drodze only.
+          - Added ORLEN pickup point, sender and status handling.
+          - ORLEN parcels can merge with Allegro by exact matching tracking number."
+
+          gh release upload v1.10.0 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
