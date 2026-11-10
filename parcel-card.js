@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.10.0";
+  const CARD_VERSION = "1.10.1";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -2344,7 +2344,12 @@
         ["Your parcel is ready for pickup", "Twoja przesyłka jest gotowa do odbioru"],
         ["Your parcel is waiting for pickup", "Twoja przesyłka czeka na odbiór"],
         ["Your parcel has been delivered", "Twoja przesyłka została doręczona"],
-        ["We are delivering your parcel", "Doręczamy Twoją przesyłkę"]
+        ["We are delivering your parcel", "Doręczamy Twoją przesyłkę"],
+        ["Parcel today at pick-up point", "Przesyłka będzie dziś w punkcie odbioru"],
+        ["Parcel today at pickup point", "Przesyłka będzie dziś w punkcie odbioru"],
+        ["Parcel today at pick up point", "Przesyłka będzie dziś w punkcie odbioru"],
+        ["Parcel will be at pick-up point today", "Przesyłka będzie dziś w punkcie odbioru"],
+        ["Parcel will be at pickup point today", "Przesyłka będzie dziś w punkcie odbioru"]
       ]);
 
       if (exact.has(text)) {
@@ -2373,6 +2378,11 @@
         [/\bYour parcel is waiting for pickup\b/gi, "Twoja przesyłka czeka na odbiór"],
         [/\bYour parcel has been delivered\b/gi, "Twoja przesyłka została doręczona"],
         [/\bWe are delivering your parcel\b/gi, "Doręczamy Twoją przesyłkę"],
+        [/\bParcel today at pick-up point\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
+        [/\bParcel today at pickup point\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
+        [/\bParcel today at pick up point\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
+        [/\bParcel will be at pick-up point today\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
+        [/\bParcel will be at pickup point today\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
         [/\bEstimated delivery to:\s*/gi, "Przewidywane doręczenie: "],
         [/\bEstimated delivery:\s*/gi, "Przewidywane doręczenie: "],
         [/\bExpected delivery:\s*/gi, "Przewidywane doręczenie: "],
