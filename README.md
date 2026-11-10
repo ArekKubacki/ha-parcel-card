@@ -149,7 +149,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.0
+/local/community/parcel-card/parcel-card.js?v=1.10.1
 ```
 
 ---
@@ -542,6 +542,7 @@ Your parcel has arrived at point
 Your parcel is ready for pickup
 Your parcel is waiting for pickup
 Your parcel has been delivered
+Parcel today at pick-up point
 ```
 
 Przykład:
@@ -871,7 +872,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.0
+/local/community/parcel-card/parcel-card.js?v=1.10.1
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
@@ -954,7 +955,7 @@ Nazwy i znaki towarowe należą do ich właścicieli.
 # 📄 Aktualna wersja
 
 ```text
-1.10.0
+1.10.1
 ```
 
 ---
