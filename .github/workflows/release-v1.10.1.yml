@@ -1,0 +1,43 @@
+name: Create v1.10.1 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.10.1.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate JavaScript syntax
+        run: node --check parcel-card.js
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.10.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          gh release create v1.10.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.10.1" \
+            --notes "HA Parcel Card v1.10.1
+
+          - Added Polish translation for Parcel today at pick-up point.
+          - Added common pickup point spelling variants.
+          - Displays the message as: Przesyłka będzie dziś w punkcie odbioru."
+
+          gh release upload v1.10.1 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
