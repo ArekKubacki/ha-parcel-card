@@ -2,6 +2,12 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.10.1
+
+- Added Polish translation for Allegro/One delivery message `Parcel today at pick-up point`.
+- Also handles common spelling variants such as `pickup point` and `pick up point`.
+- The message is displayed as `Przesyłka będzie dziś w punkcie odbioru`.
+
 ## 1.10.0
 
 - Added ORLEN Paczka support to HA Parcel Card.
