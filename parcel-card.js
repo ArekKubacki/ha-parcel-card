@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.10.1";
+  const CARD_VERSION = "1.10.2";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -2349,7 +2349,10 @@
         ["Parcel today at pickup point", "Przesyłka będzie dziś w punkcie odbioru"],
         ["Parcel today at pick up point", "Przesyłka będzie dziś w punkcie odbioru"],
         ["Parcel will be at pick-up point today", "Przesyłka będzie dziś w punkcie odbioru"],
-        ["Parcel will be at pickup point today", "Przesyłka będzie dziś w punkcie odbioru"]
+        ["Parcel will be at pickup point today", "Przesyłka będzie dziś w punkcie odbioru"],
+        ["Parcel pending dispatch", "Przesyłka oczekuje na nadanie"],
+        ["New delivery date coming soon", "Nowy termin dostawy pojawi się wkrótce"],
+        ["New delivery date coming soon.", "Nowy termin dostawy pojawi się wkrótce."]
       ]);
 
       if (exact.has(text)) {
@@ -2383,6 +2386,12 @@
         [/\bParcel today at pick up point\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
         [/\bParcel will be at pick-up point today\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
         [/\bParcel will be at pickup point today\b/gi, "Przesyłka będzie dziś w punkcie odbioru"],
+        [/\bParcel pending dispatch\b/gi, "Przesyłka oczekuje na nadanie"],
+        [/\bIt will be at the pick-up point later than\s+(.+?)\s+New delivery date coming soon\.?$/gi, "Przesyłka dotrze do punktu odbioru później niż $1. Nowy termin dostawy pojawi się wkrótce."],
+        [/\bIt will be at the pickup point later than\s+(.+?)\s+New delivery date coming soon\.?$/gi, "Przesyłka dotrze do punktu odbioru później niż $1. Nowy termin dostawy pojawi się wkrótce."],
+        [/\bIt will be at the pick-up point later than\b/gi, "Przesyłka dotrze do punktu odbioru później niż"],
+        [/\bIt will be at the pickup point later than\b/gi, "Przesyłka dotrze do punktu odbioru później niż"],
+        [/\bNew delivery date coming soon\.?/gi, "Nowy termin dostawy pojawi się wkrótce."],
         [/\bEstimated delivery to:\s*/gi, "Przewidywane doręczenie: "],
         [/\bEstimated delivery:\s*/gi, "Przewidywane doręczenie: "],
         [/\bExpected delivery:\s*/gi, "Przewidywane doręczenie: "],
@@ -2443,6 +2452,14 @@
 
       if (STATUS_META[normalized]) {
         return this._statusLabel(normalized);
+      }
+
+      const externalLabels = {
+        PENDING: "Oczekuje na nadanie"
+      };
+
+      if (externalLabels[normalized]) {
+        return externalLabels[normalized];
       }
 
       return this._translateAllegroDeliveryText(value);
