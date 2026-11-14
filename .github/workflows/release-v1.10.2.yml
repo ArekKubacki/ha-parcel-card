@@ -1,0 +1,44 @@
+name: Create v1.10.2 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.10.2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate JavaScript syntax
+        run: node --check parcel-card.js
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.10.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.10.2 already exists."
+            exit 0
+          fi
+
+          gh release create v1.10.2 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.10.2" \
+            --notes "HA Parcel Card v1.10.2
+
+          - Added Polish translation for Parcel pending dispatch.
+          - Added translation for delayed pickup-point delivery messages.
+          - Raw One Kurier PENDING status is shown as Oczekuje na nadanie."
+
+          gh release upload v1.10.2 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
