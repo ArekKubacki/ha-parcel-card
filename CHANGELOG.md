@@ -2,6 +2,13 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.10.2
+
+- Added Polish translation for Allegro One / One Kurier message `Parcel pending dispatch`.
+- Added translation for delayed pickup-point delivery text such as `It will be at the pick-up point later than ... New delivery date coming soon.`.
+- Raw One Kurier status `PENDING` is now displayed as `Oczekuje na nadanie`.
+- Existing localized weekday/month dates remain translated inside the new message.
+
 ## 1.10.1
 
 - Added Polish translation for Allegro/One delivery message `Parcel today at pick-up point`.
