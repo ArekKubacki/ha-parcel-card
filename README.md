@@ -149,7 +149,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.2
+/local/community/parcel-card/parcel-card.js?v=1.10.3
 ```
 
 ---
@@ -395,6 +395,8 @@ do_odbioru:
 ```
 
 Karta wykorzystuje numer przesyłki, status, nadawcę i punkt odbioru. Statusy ORLEN są mapowane na wspólne stany karty, m.in. **W drodze**, **W dostawie**, **Do odbioru**, **Zwrot** i **Problem**.
+
+Jeżeli zamówienie z Allegro jest doręczane fizycznie przez ORLEN Paczka, ale punktem docelowym jest **Allegro One Box / One Punkt**, karta grupuje je w interfejsie pod **Allegro One**. ORLEN pozostaje źródłem technicznym używanym do scalania po numerze przesyłki.
 
 Jeżeli numer z ORLEN jest identyczny z numerem dostępnym w Allegro, rekordy mogą zostać scalone po dokładnej zgodności numeru przesyłki.
 
@@ -872,7 +874,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.2
+/local/community/parcel-card/parcel-card.js?v=1.10.3
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
