@@ -2,6 +2,13 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.10.3
+
+- Added Polish translation for Allegro One pickup message `Pick up your parcel` / `Collect your parcel`.
+- Translates the pickup deadline prefix `until` to `do` when followed by a localized date.
+- Allegro orders delivered by ORLEN Paczka to an Allegro One Box / One Punkt are now displayed under **Allegro One** instead of the **ORLEN** carrier tile.
+- ORLEN remains the physical carrier used internally for exact tracking-number merging, so ORLEN integration data can still be merged into the Allegro One entry.
+
 ## 1.10.2
 
 - Added Polish translation for Allegro One / One Kurier message `Parcel pending dispatch`.
