@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.10.2";
+  const CARD_VERSION = "1.10.3";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -2026,7 +2026,7 @@
       const keyed = new Map();
 
       for (const pkg of packages) {
-        const carrier = this._carrierForPackage(pkg);
+        const carrier = this._mergeCarrierForPackage(pkg);
         const candidates = this._trackingCandidates(pkg);
 
         // Null/puste numery nigdy nie uczestniczą w scalaniu.
@@ -2126,9 +2126,35 @@
       return "Inny";
     }
 
-    _carrierForPackage(pkg) {
-      // Jeżeli paczka pochodzi z InPost albo została połączona
-      // Allegro + InPost, zawsze trafia do wspólnego kafelka InPost.
+    _isAllegroOneBoxPackage(pkg) {
+      const delivery = String(pkg?.deliveryName || "").toLowerCase();
+      const locker = String(pkg?.locker || "").toLowerCase();
+      const pickupDescription = String(
+        pkg?.pickupPointDescription || ""
+      ).toLowerCase();
+
+      const hasAllegroSource =
+        pkg?.source === "allegro" ||
+        pkg?.allegroRaw ||
+        (Array.isArray(pkg?.sources) && pkg.sources.includes("Allegro"));
+
+      const text = `${delivery} ${locker} ${pickupDescription}`;
+
+      return (
+        hasAllegroSource &&
+        (
+          text.includes("allegro one box") ||
+          text.includes("one box") ||
+          text.includes("allegro one punkt") ||
+          text.includes("one punkt")
+        )
+      );
+    }
+
+    _mergeCarrierForPackage(pkg) {
+      // Do scalania używamy fizycznego przewoźnika. Dzięki temu Allegro One
+      // Box obsługiwany przez ORLEN może nadal zostać połączony z rekordem
+      // z integracji ORLEN, mimo że w interfejsie pokażemy go pod Allegro One.
       if (
         pkg?.source === "inpost" ||
         pkg?.personName ||
@@ -2144,6 +2170,17 @@
       }
 
       return this._carrierFor(pkg?.deliveryName);
+    }
+
+    _carrierForPackage(pkg) {
+      // Allegro One Box jest dla użytkownika częścią sieci Allegro, nawet gdy
+      // transport ostatniej mili realizuje ORLEN Paczka. Zachowujemy ORLEN jako
+      // źródło techniczne, ale grupujemy taki wpis pod Allegro One.
+      if (this._isAllegroOneBoxPackage(pkg)) {
+        return "Allegro One";
+      }
+
+      return this._mergeCarrierForPackage(pkg);
     }
 
     _carrierTrackingUrl(pkg) {
@@ -2352,7 +2389,9 @@
         ["Parcel will be at pickup point today", "Przesyłka będzie dziś w punkcie odbioru"],
         ["Parcel pending dispatch", "Przesyłka oczekuje na nadanie"],
         ["New delivery date coming soon", "Nowy termin dostawy pojawi się wkrótce"],
-        ["New delivery date coming soon.", "Nowy termin dostawy pojawi się wkrótce."]
+        ["New delivery date coming soon.", "Nowy termin dostawy pojawi się wkrótce."],
+        ["Pick up your parcel", "Odbierz przesyłkę"],
+        ["Collect your parcel", "Odbierz przesyłkę"]
       ]);
 
       if (exact.has(text)) {
@@ -2392,6 +2431,9 @@
         [/\bIt will be at the pick-up point later than\b/gi, "Przesyłka dotrze do punktu odbioru później niż"],
         [/\bIt will be at the pickup point later than\b/gi, "Przesyłka dotrze do punktu odbioru później niż"],
         [/\bNew delivery date coming soon\.?/gi, "Nowy termin dostawy pojawi się wkrótce."],
+        [/\bPick up your parcel\b/gi, "Odbierz przesyłkę"],
+        [/\bCollect your parcel\b/gi, "Odbierz przesyłkę"],
+        [/\buntil\s+(?=(?:pon\.|wt\.|śr\.|czw\.|pt\.|sob\.|niedz\.|\d))/gi, "do "],
         [/\bEstimated delivery to:\s*/gi, "Przewidywane doręczenie: "],
         [/\bEstimated delivery:\s*/gi, "Przewidywane doręczenie: "],
         [/\bExpected delivery:\s*/gi, "Przewidywane doręczenie: "],
