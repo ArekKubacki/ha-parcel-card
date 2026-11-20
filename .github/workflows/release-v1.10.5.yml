@@ -1,0 +1,45 @@
+name: Create v1.10.5 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.10.5.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate JavaScript syntax
+        run: node --check parcel-card.js
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.10.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.10.5 already exists."
+            exit 0
+          fi
+
+          gh release create v1.10.5 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.10.5" \
+            --notes "HA Parcel Card v1.10.5
+
+          - Fixed exact-number merging between Allegro One / One Kurier and ORLEN Paczka.
+          - ORLEN is now an additional merge carrier for Allegro One delivery names.
+          - Merge still requires an exact non-empty tracking-number match.
+          - ORLEN remains visible as a source after merging."
+
+          gh release upload v1.10.5 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
