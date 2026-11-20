@@ -2,6 +2,14 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.10.5
+
+- Fixed Allegro One / One Kurier merging with ORLEN Paczka.
+- Allegro One records now register ORLEN as an additional merge carrier when the delivery name indicates Allegro One / One Box / One Punkt / One Kurier.
+- Merging still requires an exact non-empty tracking-number match, so unrelated ORLEN parcels are never guessed together.
+- After a successful merge, ORLEN remains visible as a source while the parcel can still be grouped under Allegro One as intended.
+- Source badges now place ORLEN before Allegro.
+
 ## 1.10.4
 
 - Added an automatic fallback to the Allegro Buyer `pickup_deadline` / **Termin odbioru paczki** sensor.
