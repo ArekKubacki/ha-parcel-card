@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.10.3";
+  const CARD_VERSION = "1.10.4";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -587,6 +587,14 @@
       this._allegroPickupError = "";
       this._allegroConfigEntryId = null;
 
+      // Allegro Buyer wystawia osobny sensor pickup_deadline. Jego details[]
+      // zawiera także paczki z "Moje przesyłki", których nie udało się
+      // dopasować do zamówienia (unmatched: true). Wykrywamy tę encję
+      // automatycznie po config_entry tego samego konta.
+      this._allegroPickupDeadlineEntityId = "";
+      this._allegroPickupDeadlineResolveStarted = false;
+      this._allegroPickupDeadlineResolvedFor = "";
+
       // Home Assistant przełącza widoki bez pełnego przeładowania strony.
       // Jeśli użytkownik wyjdzie z widoku z otwartym <dialog>, przeglądarka
       // może pozostawić go w top-layer. Zamykamy popup przy każdej nawigacji.
@@ -663,7 +671,22 @@
 
     setConfig(config) {
       if (!config) throw new Error("Brak konfiguracji karty.");
+
+      const previousAllegroEntity =
+        this._config?.allegro_progress_entity || "";
+
       this._config = normalizeConfig(config);
+
+      if (
+        previousAllegroEntity !==
+        this._config.allegro_progress_entity
+      ) {
+        this._allegroConfigEntryId = null;
+        this._allegroPickupDeadlineEntityId = "";
+        this._allegroPickupDeadlineResolveStarted = false;
+        this._allegroPickupDeadlineResolvedFor = "";
+      }
+
       this._lastSignature = null;
       this._render();
     }
@@ -671,6 +694,11 @@
     set hass(hass) {
       this._hass = hass;
       if (!hass) return;
+
+      // Rozwiązanie encji wykonujemy asynchronicznie tylko raz dla danego
+      // sensora Allegro. Pierwszy render może odbyć się bez fallbacku;
+      // po odnalezieniu pickup_deadline karta odświeży się sama.
+      this._ensureAllegroPickupDeadlineEntity();
 
       // Kluczowa poprawka migotania:
       // HA przekazuje nowy obiekt hass bardzo często, nawet gdy żadna encja
@@ -740,6 +768,9 @@
       const dhlPeople = sourceAccounts(this._config.dhl_people);
 
       const allegro = this._hass.states?.[this._config.allegro_progress_entity];
+      const allegroPickupDeadline = this._allegroPickupDeadlineEntityId
+        ? this._hass.states?.[this._allegroPickupDeadlineEntityId]
+        : null;
       const mail = this._config.mail_entities.map((entityId) => ({
         entity: entityId,
         state: this._hass.states?.[entityId]?.state ?? ""
@@ -753,6 +784,12 @@
         mail,
         allegro_state: allegro?.state ?? "",
         allegro_details: allegro?.attributes?.details ?? [],
+        allegro_pickup_deadline_entity:
+          this._allegroPickupDeadlineEntityId,
+        allegro_pickup_deadline_state:
+          allegroPickupDeadline?.state ?? "",
+        allegro_pickup_deadline_details:
+          allegroPickupDeadline?.attributes?.details ?? [],
         config: {
           columns: this._config.columns,
           pickup_color: this._config.pickup_color,
@@ -780,6 +817,85 @@
 
     _progressEntity() {
       return this._hass?.states?.[this._config.allegro_progress_entity];
+    }
+
+    _pickupDeadlineEntity() {
+      if (!this._allegroPickupDeadlineEntityId) return null;
+      return this._hass?.states?.[this._allegroPickupDeadlineEntityId] || null;
+    }
+
+    async _ensureAllegroPickupDeadlineEntity() {
+      const progressEntityId =
+        String(this._config.allegro_progress_entity || "");
+
+      if (
+        !progressEntityId ||
+        !this._hass?.callWS ||
+        this._allegroPickupDeadlineResolveStarted ||
+        (
+          this._allegroPickupDeadlineResolvedFor === progressEntityId &&
+          this._allegroPickupDeadlineEntityId
+        )
+      ) {
+        return;
+      }
+
+      this._allegroPickupDeadlineResolveStarted = true;
+
+      try {
+        const configEntryId =
+          await this._resolveAllegroConfigEntryId();
+
+        if (!configEntryId) return;
+
+        const entries = await this._hass.callWS({
+          type: "config/entity_registry/list"
+        });
+
+        const sameAccount = (Array.isArray(entries) ? entries : [])
+          .filter(
+            (entry) =>
+              entry?.config_entry_id === configEntryId &&
+              entry?.platform === "allegro" &&
+              String(entry?.entity_id || "").startsWith("sensor.")
+          );
+
+        const deadlineEntry =
+          sameAccount.find((entry) =>
+            String(entry?.unique_id || "").endsWith("pickup_deadline")
+          ) ||
+          sameAccount.find((entry) =>
+            /(?:pickup_deadline|termin_odbioru_paczki)$/i.test(
+              String(entry?.entity_id || "")
+            )
+          );
+
+        if (deadlineEntry?.entity_id) {
+          this._allegroPickupDeadlineEntityId =
+            String(deadlineEntry.entity_id);
+        }
+      } catch (_) {
+        // Fallback bez registry: jeśli HA ma tylko jedno konto / encja ma
+        // standardową nazwę, spróbuj znaleźć sensor po końcówce i wspólnym
+        // najdłuższym prefiksie z encją in_progress.
+        const candidates = Object.keys(this._hass?.states || {})
+          .filter((entityId) =>
+            /^sensor\./.test(entityId) &&
+            /(?:pickup_deadline|termin_odbioru_paczki)$/i.test(entityId)
+          );
+
+        if (candidates.length === 1) {
+          this._allegroPickupDeadlineEntityId = candidates[0];
+        }
+      } finally {
+        this._allegroPickupDeadlineResolveStarted = false;
+        this._allegroPickupDeadlineResolvedFor = progressEntityId;
+
+        if (this._allegroPickupDeadlineEntityId) {
+          this._lastSignature = null;
+          if (this.isConnected) this._render();
+        }
+      }
     }
 
     _offerMatchKey(offers) {
@@ -928,10 +1044,95 @@
       };
     }
 
+    _unmatchedPickupDeadlinePackages() {
+      const details =
+        this._pickupDeadlineEntity()?.attributes?.details;
+
+      if (!Array.isArray(details)) return [];
+
+      return details
+        .filter((row) => row?.unmatched === true)
+        .map((row) => {
+          const sellerText = String(row?.seller || "").trim();
+          const explicitWaybill =
+            row?.waybill ??
+            row?.tracking_number ??
+            row?.trackingNumber ??
+            "";
+
+          const sellerWaybillMatch = sellerText.match(
+            /(?:przesyłka|przesylka|parcel)\s+([A-Z0-9._-]+)/i
+          );
+
+          const trackingNumber = this._normalizeMatchValue(
+            explicitWaybill ||
+            sellerWaybillMatch?.[1] ||
+            ""
+          );
+
+          const offersRaw = Array.isArray(row?.offers)
+            ? row.offers
+            : row?.offers
+              ? [row.offers]
+              : [];
+
+          // W pickup_deadline dla unmatched "offers" pochodzi z package.title,
+          // czyli jest komunikatem logistycznym (np. "Pick up your parcel"),
+          // a nie nazwą kupionego produktu.
+          const deliveryDescription =
+            offersRaw.length === 1
+              ? String(offersRaw[0] || "")
+              : "";
+
+          return {
+            raw: row,
+            source: "allegro",
+            sources: ["Allegro"],
+            assignments: [],
+            seller: "Allegro",
+            status: "AVAILABLE_FOR_PICKUP",
+            offers: [],
+            deliveryName: "Allegro One",
+            trackingUrl: "",
+            trackingNumber,
+            allegroTrackingNumber: trackingNumber,
+            allegroWaybills: trackingNumber ? [trackingNumber] : [],
+            carrierTrackingNumber: "",
+            pickupCode: null,
+            receiverPhoneNumber: null,
+            qrCode: null,
+            locker: row?.pickup_point_name || "",
+            address: row?.pickup_point_address || "",
+            deadline: row?.pickup_deadline || "",
+            externalStatus: "AVAILABLE_FOR_PICKUP",
+            deliveryDescription,
+            deliveryDetails: "",
+            pickupPointDescription: "",
+            isDefaultPickupPoint: null,
+            unmatchedPickupDeadline: true
+          };
+        })
+        .filter((pkg) => pkg.trackingNumber || pkg.deadline);
+    }
+
     _packages() {
       const details = this._progressEntity()?.attributes?.details;
-      if (!Array.isArray(details)) return [];
-      return details.map((p) => this._normalizePackage(p));
+      const primary = Array.isArray(details)
+        ? details.map((p) => this._normalizePackage(p))
+        : [];
+
+      const knownTracking = new Set(
+        primary.flatMap((pkg) => this._trackingCandidates(pkg))
+      );
+
+      const fallback = this._unmatchedPickupDeadlinePackages()
+        .filter((pkg) => {
+          const candidates = this._trackingCandidates(pkg);
+          if (!candidates.length) return true;
+          return !candidates.some((value) => knownTracking.has(value));
+        });
+
+      return [...primary, ...fallback];
     }
 
     async _resolveAllegroConfigEntryId() {
