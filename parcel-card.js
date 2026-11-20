@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.10.4";
+  const CARD_VERSION = "1.10.5";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -2222,24 +2222,58 @@
       };
     }
 
+    _mergeCarrierCandidates(pkg) {
+      const primary = this._mergeCarrierForPackage(pkg);
+      const carriers = primary ? [primary] : [];
+
+      const hasAllegroSource =
+        pkg?.source === "allegro" ||
+        pkg?.allegroRaw ||
+        (Array.isArray(pkg?.sources) && pkg.sources.includes("Allegro"));
+
+      const delivery = String(pkg?.deliveryName || "").toLowerCase();
+
+      // Allegro One Box / One Kurier może być fizycznie obsługiwany przez
+      // ORLEN Paczka, mimo że nazwa dostawy nadal zawiera wyłącznie Allegro.
+      // ORLEN jest dodatkowym kluczem tylko dla rekordów Allegro One i tylko
+      // przy dokładnej zgodności numeru przesyłki.
+      if (
+        hasAllegroSource &&
+        (
+          delivery.includes("allegro one") ||
+          delivery.includes("one box") ||
+          delivery.includes("one punkt") ||
+          delivery.includes("one kurier")
+        )
+      ) {
+        carriers.push("ORLEN");
+      }
+
+      return [...new Set(carriers.filter(Boolean))];
+    }
+
     _mergeByTracking(packages) {
       const result = [];
       const keyed = new Map();
 
       for (const pkg of packages) {
-        const carrier = this._mergeCarrierForPackage(pkg);
+        const carriers = this._mergeCarrierCandidates(pkg);
         const candidates = this._trackingCandidates(pkg);
 
         // Null/puste numery nigdy nie uczestniczą w scalaniu.
-        if (!candidates.length || !carrier) {
+        if (!candidates.length || !carriers.length) {
           result.push(pkg);
           continue;
         }
 
         const matchingIndexes = [
           ...new Set(
-            candidates
-              .map((tracking) => keyed.get(`${carrier}|${tracking}`))
+            carriers
+              .flatMap((carrier) =>
+                candidates.map((tracking) =>
+                  keyed.get(`${carrier}|${tracking}`)
+                )
+              )
               .filter((index) => index !== undefined)
           )
         ];
@@ -2255,9 +2289,11 @@
           const index = result.length;
           result.push(pkg);
 
-          for (const tracking of candidates) {
-            const key = `${carrier}|${tracking}`;
-            if (!keyed.has(key)) keyed.set(key, index);
+          for (const carrier of carriers) {
+            for (const tracking of candidates) {
+              const key = `${carrier}|${tracking}`;
+              if (!keyed.has(key)) keyed.set(key, index);
+            }
           }
           continue;
         }
@@ -2273,9 +2309,11 @@
 
         // Po merge rejestrujemy również nowe aliasy (np. waybill z usługi
         // Allegro Buyer), aby późniejsze rekordy mogły znaleźć ten sam wpis.
-        for (const tracking of this._trackingCandidates(result[index])) {
-          const key = `${carrier}|${tracking}`;
-          if (!keyed.has(key)) keyed.set(key, index);
+        for (const carrier of this._mergeCarrierCandidates(result[index])) {
+          for (const tracking of this._trackingCandidates(result[index])) {
+            const key = `${carrier}|${tracking}`;
+            if (!keyed.has(key)) keyed.set(key, index);
+          }
         }
       }
 
@@ -2494,7 +2532,7 @@
       }
 
       // Stabilna kolejność znanych źródeł, potem dowolne nowe.
-      const preferred = ["InPost", "DPD", "DHL", "Allegro"];
+      const preferred = ["InPost", "ORLEN", "DPD", "DHL", "Allegro"];
       const all = [...sources];
 
       return [
