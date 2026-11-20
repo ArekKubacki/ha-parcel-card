@@ -101,6 +101,14 @@ i jego atrybutu:
 details:
 ```
 
+Dodatkowo karta automatycznie wyszukuje należący do tego samego konta sensor **Termin odbioru paczki** (`pickup_deadline`). Jego `details[]` jest używane jako awaryjne źródło dla rekordów oznaczonych przez Allegro Buyer jako:
+
+```yaml
+unmatched: true
+```
+
+Takie rekordy pochodzą z Allegro **Moje przesyłki** i mogą istnieć nawet wtedy, gdy integracja nie potrafi dopasować przesyłki do zamówienia widocznego w `in_progress`. Karta dodaje je jako **Do odbioru**, zachowuje numer przesyłki i termin, a jednocześnie nie dubluje rekordów już obecnych w głównym sensorze.
+
 Dodatkowe projekty:
 
 - Home Assistant: https://www.home-assistant.io/
@@ -149,7 +157,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.3
+/local/community/parcel-card/parcel-card.js?v=1.10.4
 ```
 
 ---
@@ -874,7 +882,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.3
+/local/community/parcel-card/parcel-card.js?v=1.10.4
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
