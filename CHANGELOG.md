@@ -2,6 +2,14 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.10.4
+
+- Added an automatic fallback to the Allegro Buyer `pickup_deadline` / **Termin odbioru paczki** sensor.
+- The card automatically finds the pickup-deadline sensor belonging to the same Allegro config entry as the configured `in_progress` sensor.
+- Rows marked `unmatched: true` are added as missing **Do odbioru** parcels, so a parcel present in Allegro's "Moje przesyłki" is not lost just because it could not be matched to an order.
+- The fallback extracts the Allegro waybill from values such as `seller: przesyłka AD...`, keeps the pickup deadline and translates the logistics title such as `Pick up your parcel`.
+- Only unmatched rows are imported and existing tracking numbers are deduplicated against the normal Allegro order list.
+
 ## 1.10.3
 
 - Added Polish translation for Allegro One pickup message `Pick up your parcel` / `Collect your parcel`.
