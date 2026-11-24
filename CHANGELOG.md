@@ -2,6 +2,12 @@
 
 All notable changes to HA Parcel Card are documented here.
 
+## 1.10.6
+
+- Fixed ORLEN Paczka sender rendering when Shipment Tracking returns `nadawca` as a structured object.
+- The card now uses the sender's `name` first, then first/last name, then email as a fallback instead of displaying `[object Object]`.
+- Confirmed that ORLEN account data can expose a carrier number such as `248600869` while Allegro exposes a different `A...` identifier; those records are intentionally not guessed together without a shared identifier.
+
 ## 1.10.5
 
 - Fixed Allegro One / One Kurier merging with ORLEN Paczka.
