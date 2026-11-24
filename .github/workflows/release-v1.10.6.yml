@@ -1,0 +1,44 @@
+name: Create v1.10.6 release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release-v1.10.6.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate JavaScript syntax
+        run: node --check parcel-card.js
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.10.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v1.10.6 already exists."
+            exit 0
+          fi
+
+          gh release create v1.10.6 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v1.10.6" \
+            --notes "HA Parcel Card v1.10.6
+
+          - Fixed structured ORLEN Paczka sender rendering.
+          - Uses sender name, then first/last name, then email instead of [object Object].
+          - Keeps ORLEN and Allegro separate when their shipment identifiers differ and no safe common ID exists."
+
+          gh release upload v1.10.6 parcel-card.js \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
