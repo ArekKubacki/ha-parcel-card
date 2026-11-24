@@ -1,5 +1,5 @@
 (() => {
-  const CARD_VERSION = "1.10.5";
+  const CARD_VERSION = "1.10.6";
 
   const STATUS_META = {
     AVAILABLE_FOR_PICKUP: { label: "Do odbioru", icon: "mdi:archive-check" },
@@ -1687,6 +1687,41 @@
       return "IN_TRANSIT";
     }
 
+    _externalSenderLabel(value, fallback = "") {
+      if (value === null || value === undefined) return fallback;
+
+      if (typeof value === "string" || typeof value === "number") {
+        const text = String(value).trim();
+        return text || fallback;
+      }
+
+      if (typeof value === "object") {
+        const directName = String(
+          value?.name ??
+          value?.displayName ??
+          value?.companyName ??
+          ""
+        ).trim();
+
+        if (directName) return directName;
+
+        const personName = [
+          value?.firstName,
+          value?.lastName
+        ]
+          .map((part) => String(part ?? "").trim())
+          .filter(Boolean)
+          .join(" ");
+
+        if (personName) return personName;
+
+        const email = String(value?.email ?? "").trim();
+        if (email) return email;
+      }
+
+      return fallback;
+    }
+
     _normalizeExternalCarrierPackage(raw, account, carrier) {
       const statusText = String(raw?.status ?? "");
       const carrierUpper = String(carrier || "").toUpperCase();
@@ -1700,7 +1735,7 @@
           ? [{ source: carrierUpper, name: assignmentName }]
           : [],
         accountName: assignmentName,
-        seller: raw?.nadawca || carrierUpper,
+        seller: this._externalSenderLabel(raw?.nadawca, carrierUpper),
         status: this._carrierStatusToCardStatus(statusText, carrierUpper),
         externalStatus: statusText,
         offers: [],
