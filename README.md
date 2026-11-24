@@ -157,7 +157,7 @@ Dodaj zasób Lovelace:
 Przy ręcznych aktualizacjach warto zmieniać wersję w URL:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.5
+/local/community/parcel-card/parcel-card.js?v=1.10.6
 ```
 
 ---
@@ -882,7 +882,7 @@ Dlatego:
 Po aktualizacji możesz wymusić przeładowanie zasobu:
 
 ```text
-/local/community/parcel-card/parcel-card.js?v=1.10.5
+/local/community/parcel-card/parcel-card.js?v=1.10.6
 ```
 
 Jeżeli InPost nie pokazuje szczegółów, sprawdź czy wybrana encja posiada `do_odbioru` i `w_drodze`.
